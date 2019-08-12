@@ -1,0 +1,17 @@
+series: disco
+relations:
+- - vault:shared-db
+  - mysql:shared-db
+- - ovn:certificates
+  - vault:certificates
+applications:
+  mysql:
+    charm: cs:~openstack-charmers-next/percona-cluster
+    num_units: 1
+  vault:
+    charm: cs:~openstack-charmers-next/vault
+    num_units: 1
+  ovn:
+    series: disco
+    charm: cs:~openstack-charmers-next/ovn
+    num_units: 1

@@ -1,0 +1,17 @@
+charm_name: ovn
+gate_bundles:
+- disco
+- bionic
+smoke_bundles:
+- bionic
+target_deploy_status:
+  ovn:
+    workload-status: blocked
+    workload-status-message: "'certificates' missing"
+  vault:
+    workload-status: blocked
+    workload-status-message: Vault needs to be initialized
+configure:
+- zaza.openstack.charm_tests.ovn.setup.initialize_vault
+tests:
+- zaza.charm_tests.noop.tests.NoopTest
