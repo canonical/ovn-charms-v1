@@ -26,14 +26,14 @@ class TestRegisteredHooks(test_utils.TestRegisteredHooks):
             'charm.installed',
             'config.changed',
             'update-status',
-            'upgrade-charm']
+            'upgrade-charm',
+            'certificates.available',
+        ]
         hook_set = {
-            'when': {
-                'request_certificates': ('certificates.available',),
-            },
-            'when_any': {
-                'render': ('certificates.ca.changed',
-                           'certificates.server.certs.changed',),
+            'when_all': {
+                'render': ('charm.installed',
+                           'certificates.connected',
+                           'certificates.available',),
             },
         }
         # test that the hooks were registered via the
@@ -53,29 +53,9 @@ class TestOvnHandlers(test_utils.PatchHelper):
             self.charm
         self.provide_charm_instance().__exit__.return_value = None
 
-    def test_request_certificates(self):
-        self.patch_object(handlers.cert_utils, 'get_certificate_request')
-        self.get_certificate_request.return_value = {
-            'cert_requests': {
-                'aCn': {'sans': 'aSans'},
-            },
-        }
-        self.patch('charms.reactive.set_flag', 'set_flag')
-        tls_relation = mock.MagicMock()
-        handlers.request_certificates(tls_relation)
-        tls_relation.add_request_server_cert.assert_called_once_with(
-            'aCn', 'aSans')
-        tls_relation.request_server_certs.assert_called_once_with()
-        self.set_flag.assert_called_once_with('certificates.connected')
-        self.charm.assess_status.assert_called_once_with()
-
     def test_render(self):
         self.patch('charms.reactive.clear_flag', 'clear_flag')
         handlers.render('arg1', 'arg2')
         self.charm.render_with_interfaces.assert_called_once_with(
             ('arg1', 'arg2'))
-        self.clear_flag.assert_has_calls([
-            mock.call('certificates.ca.changed'),
-            mock.call('certificates.server.certs.changed'),
-        ])
         self.charm.assess_status.assert_called_once_with()

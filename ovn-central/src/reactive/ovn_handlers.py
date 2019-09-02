@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import charmhelpers.contrib.openstack.cert_utils as cert_utils
 import charms.reactive as reactive
+
 import charms_openstack.bus
 import charms_openstack.charm as charm
 
@@ -25,27 +25,16 @@ charm.use_defaults(
     'charm.installed',
     'config.changed',
     'update-status',
-    'upgrade-charm')
+    'upgrade-charm',
+    'certificates.available',
+)
 
 
-@reactive.when('certificates.available')
-def request_certificates(tls):
-    with charm.provide_charm_instance() as instance:
-        for cn, req in cert_utils.get_certificate_request(
-                json_encode=False).get('cert_requests', {}).items():
-            tls.add_request_server_cert(cn, req['sans'])
-        tls.request_server_certs()
-        # make charms.openstack required relation check happy
-        reactive.set_flag('certificates.connected')
-        instance.assess_status()
-
-
-@reactive.when_any(
-    'certificates.ca.changed',
-    'certificates.server.certs.changed')
+@reactive.when_all('charm.installed',
+                   'certificates.connected',
+                   'certificates.available')
 def render(*args):
-    with charm.provide_charm_instance() as instance:
-        instance.render_with_interfaces(args)
-    reactive.clear_flag('certificates.ca.changed')
-    reactive.clear_flag('certificates.server.certs.changed')
-    instance.assess_status()
+    with charm.provide_charm_instance() as ovn_charm:
+        ovn_charm.render_with_interfaces(args)
+        ovn_charm.assess_status()
+    reactive.set_flag('config.rendered')

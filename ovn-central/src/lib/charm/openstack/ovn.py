@@ -12,7 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
+import charmhelpers.core as ch_core
+import charmhelpers.contrib.openstack.cert_utils as cert_utils
+
 import charms_openstack.charm
+
+
+OVS_ETCDIR = '/etc/openvswitch'
+OVS_CERTDIR = os.path.join(OVS_ETCDIR, 'tls')
 
 
 class OVNCharm(charms_openstack.charm.OpenStackCharm):
@@ -25,3 +34,17 @@ class OVNCharm(charms_openstack.charm.OpenStackCharm):
         '/etc/default/ovn-central': services,
     }
     python_version = 3
+
+    def configure_tls(self, certificates_interface=None):
+        """Override default handler prepare certs per OVNs taste."""
+        # The default handler in ``OpenStackCharm`` class does the CA only
+        tls_objects = super().configure_tls(
+            certificates_interface=certificates_interface)
+
+        ch_core.hookenv.log('configure_tls: "{}"'.format(tls_objects))
+        for tls_object in tls_objects:
+            self.configure_cert(OVS_CERTDIR,
+                                tls_object['cert'],
+                                tls_object['key'],
+                                cn=tls_object['cn'])
+            cert_utils.create_ip_cert_links(OVS_CERTDIR)
