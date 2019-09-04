@@ -27,13 +27,17 @@ class TestRegisteredHooks(test_utils.TestRegisteredHooks):
             'config.changed',
             'update-status',
             'upgrade-charm',
-            'certificates.available',
         ]
         hook_set = {
-            'when_all': {
-                'render': ('charm.installed',
-                           'certificates.connected',
-                           'certificates.available',),
+            'when': {
+                'render': ('charm.installed',),
+                'certificates_in_config_tls': ('config.rendered',
+                                               'config.changed',),
+            },
+            'when_not_all': {
+                'certificates_in_config_tls': ('config.default.ssl_ca',
+                                               'config.default.ssl_cert',
+                                               'config.default.ssl_key',),
             },
         }
         # test that the hooks were registered via the
@@ -54,8 +58,16 @@ class TestOvnHandlers(test_utils.PatchHelper):
         self.provide_charm_instance().__exit__.return_value = None
 
     def test_render(self):
-        self.patch('charms.reactive.clear_flag', 'clear_flag')
-        handlers.render('arg1', 'arg2')
-        self.charm.render_with_interfaces.assert_called_once_with(
-            ('arg1', 'arg2'))
+        self.patch_object(handlers.charm, 'use_defaults')
+        self.patch_object(handlers.reactive, 'set_flag')
+        self.charm.enable_services.return_value = False
+        handlers.render()
+        self.charm.render_with_interfaces.assert_called_once_with([])
+        self.charm.enable_services.assert_called_once_with()
+        self.assertFalse(self.use_defaults.called)
+        self.assertFalse(self.set_flag.called)
         self.charm.assess_status.assert_called_once_with()
+        self.charm.enable_services.return_value = True
+        handlers.render()
+        self.use_defaults.assert_called_once_with('certificates.available')
+        self.set_flag.assert_called_once_with('config.rendered')

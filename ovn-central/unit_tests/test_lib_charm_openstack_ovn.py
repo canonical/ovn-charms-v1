@@ -20,6 +20,22 @@ import charms_openstack.test_utils as test_utils
 import charm.openstack.ovn as ovn
 
 
+class TestOVNConfigProperties(test_utils.PatchHelper):
+
+    def test_cluster_local_addr(self):
+        self.patch_object(ovn.ch_core.hookenv, 'unit_get')
+        cls = mock.MagicMock()
+        self.assertEquals(ovn.cluster_local_addr(cls), self.unit_get())
+
+    def test_db_nb_port(self):
+        cls = mock.MagicMock()
+        self.assertEquals(ovn.db_nb_port(cls), ovn.DB_NB_PORT)
+
+    def test_db_sb_port(self):
+        cls = mock.MagicMock()
+        self.assertEquals(ovn.db_sb_port(cls), ovn.DB_SB_PORT)
+
+
 class Helper(test_utils.PatchHelper):
 
     def setUp(self):
@@ -28,6 +44,21 @@ class Helper(test_utils.PatchHelper):
 
 
 class TestOVNCharm(Helper):
+
+    def test_install(self):
+        self.patch_object(ovn.charms_openstack.charm.OpenStackCharm,
+                          'install')
+        self.patch_object(ovn.os.path, 'islink')
+        self.islink.return_value = False
+        self.patch_object(ovn.os, 'symlink')
+        c = ovn.OVNCharm()
+        c.install()
+        self.islink.assert_called_once_with(
+            '/etc/systemd/system/ovn-central.service')
+        self.symlink.assert_called_once_with(
+            '/dev/null',
+            '/etc/systemd/system/ovn-central.service')
+        self.install.assert_called_once_with()
 
     def test__default_port_list(self):
         c = ovn.OVNCharm()
@@ -40,6 +71,18 @@ class TestOVNCharm(Helper):
         c._default_port_list = mock.MagicMock()
         c.ports_to_check()
         c._default_port_list.assert_called_once_with()
+
+    def test_enable_services(self):
+        self.patch_object(ovn.ch_core.host, 'service_resume')
+        c = ovn.OVNCharm()
+        c.check_if_paused = mock.MagicMock()
+        c.check_if_paused.return_value = ('status', 'message')
+        c.enable_services()
+        c.check_if_paused.assert_called_once_with()
+        self.assertFalse(self.service_resume.called)
+        c.check_if_paused.return_value = (None, None)
+        c.enable_services()
+        self.service_resume.assert_called_once_with('ovn-central')
 
     def test_ovs_controller_cert(self):
         c = ovn.OVNCharm()

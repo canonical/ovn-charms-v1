@@ -26,6 +26,34 @@ DB_NB_PORT = 6641
 DB_SB_PORT = 6642
 
 
+@charms_openstack.adapters.config_property
+def cluster_local_addr(cls):
+    """Address the ``ovsdb-server`` processes should be bound to.
+
+    :param cls: charms_openstack.adapters.ConfigurationAdapter derived class
+                instance.  Charm class instance is at cls.charm_instance.
+    :type: cls: charms_openstack.adapters.ConfiguartionAdapter
+    :returns: IP address selected for cluster communication on local unit.
+    :rtype: str
+    """
+    # XXX this should probably be made space aware
+    # for addr in cls.charm_instance.get_local_addresses():
+    #     return addr
+    return ch_core.hookenv.unit_get('private-address')
+
+
+@charms_openstack.adapters.config_property
+def db_nb_port(cls):
+    """Port the ``ovsdb-server`` process for Northbound DB should listen to."""
+    return DB_NB_PORT
+
+
+@charms_openstack.adapters.config_property
+def db_sb_port(cls):
+    """Port the ``ovsdb-server`` process for Southbound DB should listen to."""
+    return DB_SB_PORT
+
+
 class OVNCharm(charms_openstack.charm.OpenStackCharm):
     release = 'queens'
     name = 'ovn'
@@ -36,6 +64,20 @@ class OVNCharm(charms_openstack.charm.OpenStackCharm):
         '/etc/default/ovn-central': services,
     }
     python_version = 3
+
+    def install(self):
+        """Mask the ``ovn-central`` service before initial installation.
+
+        This is done to prevent extraneous standalone DB initialization and
+        subsequent upgrade to clustered DB when configuration is rendered.
+
+        We need to manually create the symlink as the package is not installed
+        yet and subsequently systemctl(1) has no knowledge of it.
+        """
+        ovn_central_service_file = '/etc/systemd/system/ovn-central.service'
+        if not os.path.islink(ovn_central_service_file):
+            os.symlink('/dev/null', ovn_central_service_file)
+        super().install()
 
     def _default_port_list(self, *_):
         """Return list of ports the payload listens too.
@@ -52,6 +94,17 @@ class OVNCharm(charms_openstack.charm.OpenStackCharm):
         one service to listen to multiple ports.
         """
         return self._default_port_list()
+
+    def enable_services(self):
+        """Enable services.
+
+        :returns: True on success, False on failure.
+        :rtype: bool"""
+        if self.check_if_paused() != (None, None):
+            return False
+        for service in self.services:
+            ch_core.host.service_resume(service)
+        return True
 
     @property
     def ovs_controller_cert(self):
@@ -98,3 +151,5 @@ class OVNCharm(charms_openstack.charm.OpenStackCharm):
                      '.',
                      'external-ids:ovn-remote=ssl:127.0.0.1:{}'
                      .format(DB_SB_PORT))
+            self.restart_all()
+            break

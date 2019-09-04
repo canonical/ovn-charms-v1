@@ -26,15 +26,28 @@ charm.use_defaults(
     'config.changed',
     'update-status',
     'upgrade-charm',
-    'certificates.available',
 )
 
 
-@reactive.when_all('charm.installed',
-                   'certificates.connected',
-                   'certificates.available')
-def render(*args):
+@reactive.when_not_all('config.default.ssl_ca',
+                       'config.default.ssl_cert',
+                       'config.default.ssl_key')
+@reactive.when('config.rendered', 'config.changed')
+def certificates_in_config_tls():
+    # handle the legacy ssl_* configuration options
     with charm.provide_charm_instance() as ovn_charm:
-        ovn_charm.render_with_interfaces(args)
+        ovn_charm.configure_tls()
         ovn_charm.assess_status()
-    reactive.set_flag('config.rendered')
+
+
+@reactive.when('charm.installed')
+def render():
+    with charm.provide_charm_instance() as ovn_charm:
+        ovn_charm.render_with_interfaces([])
+        if ovn_charm.enable_services():
+            # belated enablement of default certificates handler due to the
+            # ``ovsdb-server`` processes must have finished database
+            # initialization and be running prior to configuring TLS
+            charm.use_defaults('certificates.available')
+            reactive.set_flag('config.rendered')
+        ovn_charm.assess_status()
