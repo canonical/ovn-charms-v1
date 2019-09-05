@@ -27,9 +27,6 @@ series:
   - bionic
   - disco
 subordinate: false
-requires:
-  certificates:
-    interface: tls-certificates
 provides:
   ovsdb:
     interface: ovsdb

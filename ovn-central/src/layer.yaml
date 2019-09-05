@@ -1,8 +1,6 @@
 includes:
   - layer:leadership
   - layer:openstack
-  - layer:tls-client
-  - interface:tls-certificates
 options:
   basic:
     use_venv: True
