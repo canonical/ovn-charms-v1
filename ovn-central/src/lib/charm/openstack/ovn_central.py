@@ -15,6 +15,8 @@
 import os
 import subprocess
 
+import charms.reactive as reactive
+
 import charmhelpers.core as ch_core
 
 import charms_openstack.adapters
@@ -22,40 +24,31 @@ import charms_openstack.charm
 
 
 OVS_ETCDIR = '/etc/openvswitch'
+# XXX get these from the ovsdb-cluster interface
 DB_NB_PORT = 6641
 DB_SB_PORT = 6642
+DB_NB_CLUSTER_PORT = 6643
+DB_SB_CLUSTER_PORT = 6644
 
 
 @charms_openstack.adapters.config_property
-def cluster_local_addr(cls):
-    """Address the ``ovsdb-server`` processes should be bound to.
-
-    :param cls: charms_openstack.adapters.ConfigurationAdapter derived class
-                instance.  Charm class instance is at cls.charm_instance.
-    :type: cls: charms_openstack.adapters.ConfiguartionAdapter
-    :returns: IP address selected for cluster communication on local unit.
-    :rtype: str
-    """
-    # XXX this should probably be made space aware
-    # for addr in cls.charm_instance.get_local_addresses():
-    #     return addr
-    return ch_core.hookenv.unit_get('private-address')
+def ovn_key(cls):
+    return os.path.join(OVS_ETCDIR, 'key_host')
 
 
 @charms_openstack.adapters.config_property
-def db_nb_port(cls):
-    """Port the ``ovsdb-server`` process for Northbound DB should listen to."""
-    return DB_NB_PORT
+def ovn_cert(cls):
+    return os.path.join(OVS_ETCDIR, 'cert_host')
 
 
 @charms_openstack.adapters.config_property
-def db_sb_port(cls):
-    """Port the ``ovsdb-server`` process for Southbound DB should listen to."""
-    return DB_SB_PORT
+def ovn_ca_cert(cls):
+    return os.path.join(OVS_ETCDIR,
+                        '{}.crt'.format(cls.charm_instance.name))
 
 
-class OVNCharm(charms_openstack.charm.OpenStackCharm):
-    release = 'queens'
+class OVNCentralCharm(charms_openstack.charm.OpenStackCharm):
+    release = 'stein'
     name = 'ovn'
     packages = ['ovn-central']
     services = ['ovn-central']
@@ -64,19 +57,26 @@ class OVNCharm(charms_openstack.charm.OpenStackCharm):
         '/etc/default/ovn-central': services,
     }
     python_version = 3
+    source_config_key = 'source'
 
     def install(self):
-        """Mask the ``ovn-central`` service before initial installation.
+        """Extend the default install method.
+
+        Mask the ``ovn-central`` service before initial installation.
 
         This is done to prevent extraneous standalone DB initialization and
         subsequent upgrade to clustered DB when configuration is rendered.
 
         We need to manually create the symlink as the package is not installed
         yet and subsequently systemctl(1) has no knowledge of it.
+
+        We also configure source before installing as OpenvSwitch and OVN
+        packages are distributed as part of the UCA.
         """
         ovn_central_service_file = '/etc/systemd/system/ovn-central.service'
         if not os.path.islink(ovn_central_service_file):
             os.symlink('/dev/null', ovn_central_service_file)
+        self.configure_source()
         super().install()
 
     def _default_port_list(self, *_):
@@ -85,6 +85,8 @@ class OVNCharm(charms_openstack.charm.OpenStackCharm):
         The api_ports class attribute can not be used as it does not allow
         one service to listen to multiple ports.
         """
+        # NOTE(fnordahl): the port check  does not appear to cope with
+        # ports bound to a specific interface LP: #1843434
         return [DB_NB_PORT, DB_SB_PORT]
 
     def ports_to_check(self, *_):
@@ -106,50 +108,60 @@ class OVNCharm(charms_openstack.charm.OpenStackCharm):
             ch_core.host.service_resume(service)
         return True
 
-    @property
-    def ovs_controller_cert(self):
-        return os.path.join(OVS_ETCDIR, 'cert_host')
-
-    @property
-    def ovs_controller_key(self):
-        return os.path.join(OVS_ETCDIR, 'key_host')
-
     def run(self, *args):
         cp = subprocess.run(
             args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True,
             universal_newlines=True)
         ch_core.hookenv.log(cp, level=ch_core.hookenv.INFO)
 
+    def join_cluster(self, db_file, schema_name, local_conn, remote_conn):
+        if os.path.exists(db_file):
+            return
+        cmd = ['ovsdb-tool', 'join-cluster', db_file, schema_name]
+        cmd.extend(list(local_conn))
+        cmd.extend(list(remote_conn))
+        ch_core.hookenv.log(cmd, level=ch_core.hookenv.INFO)
+        self.run(*cmd)
+
     def configure_tls(self, certificates_interface=None):
         """Override default handler prepare certs per OVNs taste."""
-        # The default handler in ``OpenStackCharm`` class does the CA only
-        tls_objects = super().configure_tls(
+        tls_objects = self.get_certs_and_keys(
             certificates_interface=certificates_interface)
 
         for tls_object in tls_objects:
+            with open(ovn_ca_cert(self.adapters_instance), 'w') as crt:
+                crt.write(
+                    tls_object['ca'] +
+                    os.linesep +
+                    tls_object.get('chain', ''))
             self.configure_cert(OVS_ETCDIR,
                                 tls_object['cert'],
                                 tls_object['key'],
                                 cn='host')
-            for ctl in 'ovs-vsctl', 'ovn-nbctl', 'ovn-sbctl':
-                self.run(ctl,
-                         'set-ssl',
-                         self.ovs_controller_key,
-                         self.ovs_controller_cert,
-                         '/usr/local/share/ca-certificates/{}.crt'
-                         .format(self.service_name))
-            self.run('ovn-nbctl',
-                     'set-connection',
-                     'pssl:{}'.format(DB_NB_PORT))
-            self.run('ovn-sbctl',
-                     'set-connection',
-                     'role=ovn-controller',
-                     'pssl:{}'.format(DB_SB_PORT))
+            self.run('ovs-vsctl',
+                     'set-ssl',
+                     ovn_key(self.adapters_instance),
+                     ovn_cert(self.adapters_instance),
+                     ovn_ca_cert(self.adapters_instance))
             self.run('ovs-vsctl',
                      'set',
                      'open',
                      '.',
                      'external-ids:ovn-remote=ssl:127.0.0.1:{}'
                      .format(DB_SB_PORT))
-            self.restart_all()
+            if reactive.is_flag_set('leadership.is_leader'):
+                self.run('ovn-nbctl',
+                         'set-connection',
+                         'pssl:{}'.format(DB_NB_PORT))
+                # NOTE(fnordahl): Temporarilly disable RBAC, we need to figure
+                #                 out how to pre-populate the Chassis database
+                #                 before enabling this.
+                # self.run('ovn-sbctl',
+                #          'set-connection',
+                #          'role=ovn-controller',
+                #          'pssl:{}'.format(DB_SB_PORT))
+                self.run('ovn-sbctl',
+                         'set-connection',
+                         'pssl:{}'.format(DB_SB_PORT))
+                self.restart_all()
             break

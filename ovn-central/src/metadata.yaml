@@ -1,4 +1,4 @@
-name: ovn
+name: ovn-central
 summary: Open Virtual Network for Open vSwitch
 maintainer: OpenStack Charmers <openstack-charmers@lists.ubuntu.com>
 description: |
@@ -30,3 +30,10 @@ subordinate: false
 provides:
   ovsdb:
     interface: ovsdb
+  ovsdb-cms:
+    interface: ovsdb-cms
+  ovsdb-server:
+    interface: ovsdb-cluster
+peers:
+  ovsdb-peer:
+    interface: ovsdb-cluster

@@ -1,0 +1,23 @@
+options:
+  source:
+    default: distro
+    type: string
+    description: |
+      Repository from which to install OVS+OVN
+
+      May be one of the following:
+
+        distro (default)
+        ppa:somecustom/ppa (PPA name must include UCA OpenStack Release name)
+        deb url sources entry|key id
+        or a supported Ubuntu Cloud Archive pocket.
+
+      Supported Ubuntu Cloud Archive pockets include:
+
+        cloud:xenial-pike
+        cloud:xenial-queens
+        cloud:bionic-rocky
+
+      Note that updating this setting to a source that is known to
+      provide a later version of Ceph will trigger a software
+      upgrade.
