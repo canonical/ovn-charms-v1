@@ -1,0 +1,28 @@
+###############################################################################
+# [ WARNING ]
+# Configuration file maintained by Juju. Local changes may be overwritten.
+# Configuration managed by neutron-openvswitch charm
+###############################################################################
+
+[Unit]
+Description=Networking OVN Metadata Agent
+
+
+
+
+[Service]
+User=root
+Group=root
+Type=simple
+WorkingDirectory=~
+RuntimeDirectory=neutron lock/neutron
+CacheDirectory=neutron
+ExecStart=/etc/init.d/networking-ovn-metadata-agent systemd-start
+Restart=on-failure
+LimitNOFILE=65535
+TimeoutStopSec=15
+
+
+[Install]
+WantedBy=multi-user.target
+

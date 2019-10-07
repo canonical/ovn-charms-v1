@@ -1,4 +1,4 @@
-name: ovn-controller
+name: ovn-chassis
 summary: Open Virtual Network for Open vSwitch
 maintainer: OpenStack Charmers <openstack-charmers@lists.ubuntu.com>
 description: |
@@ -10,6 +10,10 @@ series:
   - bionic
   - disco
 subordinate: true
+provides:
+  nova-compute:
+    interface: neutron-plugin
+    scope: container
 requires:
   juju-info:
     interface: juju-info

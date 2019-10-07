@@ -1,6 +1,7 @@
 includes:
   - layer:openstack
   - interface:ovsdb
+  - interface:neutron-plugin
 options:
   basic:
     use_venv: True

@@ -14,7 +14,7 @@
 
 import mock
 
-import reactive.ovn_controller_handlers as handlers
+import reactive.ovn_chassis_handlers as handlers
 
 import charms_openstack.test_utils as test_utils
 
@@ -32,6 +32,10 @@ class TestRegisteredHooks(test_utils.TestRegisteredHooks):
         hook_set = {
             'when': {
                 'configure_ovs': ('ovsdb.available',),
+                'enable_metadata': ('nova-compute.connected',),
+            },
+            'when_not': {
+                'disable_metadata': ('nova-compute.connected',),
             },
         }
         # test that the hooks were registered via the
@@ -43,10 +47,33 @@ class TestOvnHandlers(test_utils.PatchHelper):
 
     def setUp(self):
         super().setUp()
-        # self.patch_release(octavia.OctaviaCharm.release)
         self.charm = mock.MagicMock()
         self.patch_object(handlers.charm, 'provide_charm_instance',
                           new=mock.MagicMock())
         self.provide_charm_instance().__enter__.return_value = \
             self.charm
         self.provide_charm_instance().__exit__.return_value = None
+
+    def test_disable_metadata(self):
+        handlers.disable_metadata()
+        self.charm.disable_metadata.assert_called_once_with()
+        self.charm.assess_status.assert_called_once_with()
+
+    def test_enable_metadata(self):
+        self.patch_object(handlers.reactive, 'endpoint_from_flag')
+        nova_compute = mock.MagicMock()
+        self.endpoint_from_flag.return_value = nova_compute
+        handlers.enable_metadata()
+        nova_compute.publish_shared_secret.assert_called_once_with()
+        self.charm.enable_metadata.assert_called_once_with()
+        self.charm.install.assert_called_once_with()
+        self.charm.assess_status.assert_called_once_with()
+
+    def configure_ovs(self):
+        self.patch_object(handlers.reactive, 'endpoint_from_flag')
+        ovsdb = mock.MagicMock()
+        self.endpoint_from_flag.return_value = ovsdb
+        self.charm.render_with_interfaces.assert_called_once_with(
+            self.charm.optional_interfaces((ovsdb,), 'nova-compute.connected'))
+        self.charm.configure_ovs.assert_called_once_with(ovsdb)
+        self.charm.assess_status.assert_called_once_with()
