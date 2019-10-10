@@ -113,14 +113,15 @@ class TestOVNChassisCharm(Helper):
         self.patch_object(ovn_chassis, 'ovn_cert')
         self.patch_object(ovn_chassis, 'ovn_ca_cert')
         ovsdb_interface = mock.MagicMock()
-        ovsdb_interface.db_sb_connection_strs = mock.PropertyMock(
-            ).return_value = ['dbsbconn']
-        ovsdb_interface.cluster_local_addr = mock.PropertyMock(
-            ).return_value = 'cluster_local_addr'
+        db_sb_connection_strs = mock.PropertyMock().return_value = ['dbsbconn']
+        ovsdb_interface.db_sb_connection_strs = db_sb_connection_strs
+        cluster_local_addr = mock.PropertyMock().return_value = (
+            'cluster_local_addr')
+        ovsdb_interface.cluster_local_addr = cluster_local_addr
         self.target.configure_ovs(ovsdb_interface)
         self.run.assert_has_calls([
             mock.call('ovs-vsctl', 'set-ssl', mock.ANY, mock.ANY, mock.ANY),
-            mock.call('ovs-vsctl', 'set', 'open', '.', 
+            mock.call('ovs-vsctl', 'set', 'open', '.',
                       'external-ids:ovn-remote=dbsbconn'),
             mock.call('ovs-vsctl', 'set', 'open', '.',
                       'external-ids:ovn-encap-type=geneve'),
