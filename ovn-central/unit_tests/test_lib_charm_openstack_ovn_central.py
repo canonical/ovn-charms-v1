@@ -62,6 +62,7 @@ class TestOVNCentralCharm(Helper):
         self.patch_object(ovn_central.os.path, 'islink')
         self.islink.return_value = False
         self.patch_object(ovn_central.os, 'symlink')
+        self.patch_target('configure_source')
         self.target.install()
         self.islink.assert_called_once_with(
             '/etc/systemd/system/ovn-central.service')
@@ -69,6 +70,7 @@ class TestOVNCentralCharm(Helper):
             '/dev/null',
             '/etc/systemd/system/ovn-central.service')
         self.install.assert_called_once_with()
+        self.configure_source.assert_called_once_with()
 
     def test__default_port_list(self):
         self.assertEquals(
