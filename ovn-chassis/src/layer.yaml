@@ -9,4 +9,10 @@ options:
 repo: https://github.com/openstack/charm-ovn-controller
 config:
   deletes:
+    - debug
+    - ssl_ca
+    - ssl_cert
+    - ssl_key
+    - use-internal-endpoints
+    - use-syslog
     - verbose
