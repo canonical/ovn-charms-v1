@@ -132,7 +132,7 @@ class TestOVNCentralCharm(Helper):
             self.is_flag_set.return_value = True
             self.target.configure_tls()
             mocked_open.assert_called_once_with(
-                '/etc/openvswitch/ovn.crt', 'w')
+                '/etc/openvswitch/ovn-central.crt', 'w')
             mocked_file.__enter__().write.assert_called_once_with(
                 'fakeca\nfakechain')
             self.target.configure_cert.assert_called_once_with(
@@ -145,7 +145,7 @@ class TestOVNCentralCharm(Helper):
                           'set-ssl',
                           '/etc/openvswitch/key_host',
                           '/etc/openvswitch/cert_host',
-                          '/etc/openvswitch/ovn.crt'),
+                          '/etc/openvswitch/ovn-central.crt'),
                 mock.call('ovs-vsctl',
                           'set',
                           'open',
@@ -166,7 +166,7 @@ class TestOVNCentralCharm(Helper):
                           'set-ssl',
                           '/etc/openvswitch/key_host',
                           '/etc/openvswitch/cert_host',
-                          '/etc/openvswitch/ovn.crt'),
+                          '/etc/openvswitch/ovn-central.crt'),
                 mock.call('ovs-vsctl',
                           'set',
                           'open',

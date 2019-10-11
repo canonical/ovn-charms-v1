@@ -1,11 +1,11 @@
-charm_name: ovn
+charm_name: ovn-central
 gate_bundles:
 - disco
 - bionic
 smoke_bundles:
 - bionic
 target_deploy_status:
-  ovn:
+  ovn-central:
     workload-status: blocked
     workload-status-message: "'certificates' missing"
   vault:
