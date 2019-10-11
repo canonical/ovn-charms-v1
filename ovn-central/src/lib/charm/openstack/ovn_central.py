@@ -49,7 +49,7 @@ def ovn_ca_cert(cls):
 
 class OVNCentralCharm(charms_openstack.charm.OpenStackCharm):
     release = 'stein'
-    name = 'ovn'
+    name = 'ovn-central'
     packages = ['ovn-central']
     services = ['ovn-central']
     required_relations = ['certificates']

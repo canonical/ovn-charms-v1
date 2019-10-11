@@ -46,7 +46,8 @@ def certificates_in_config_tls():
 @reactive.when('config.rendered',
                'certificates.connected',
                'certificates.available',
-               'leadership.is_leader')
+               'leadership.is_leader',
+               'ovsdb-peer.connected',)
 def announce_leader_ready():
     """Announce leader is ready.
 
@@ -57,18 +58,27 @@ def announce_leader_ready():
     Signal to our peers that they should render configurations and start their
     database processes.
     """
+    # although this is done in the interface, explicitly do it in the same
+    # breath as updating the leader settings as our peers will immediately
+    # look for it
+    ovsdb_peer = reactive.endpoint_from_flag('ovsdb-peer.connected')
+    ovsdb_peer.publish_cluster_local_addr()
+
     # FIXME use the OVSDB cluster and/or server IDs here?
     leadership.leader_set({'ready': True})
 
 
 @reactive.when_not('leadership.set.ready')
-@reactive.when('charm.installed', 'leadership.is_leader')
+@reactive.when('charm.installed', 'leadership.is_leader',
+               'ovsdb-peer.connected')
 def initialize_ovsdbs():
+    ovsdb_peer = reactive.endpoint_from_flag('ovsdb-peer.connected')
     with charm.provide_charm_instance() as ovn_charm:
-        # this will render the ``/etc/default/ovn-central`` file without
-        # configuration for the cluster remote addresses which in turn
-        # leads ``ovn-ctl`` on the path to initializing a new cluster
-        ovn_charm.render_with_interfaces([])
+        # ovsdb_peer at connected state will not provide remote addresses
+        # for the cluster.  this will render the ``/etc/default/ovn-central``
+        # file without configuration for the cluster remote addresses which
+        # in turn leads ``ovn-ctl`` on the path to initializing a new cluster
+        ovn_charm.render_with_interfaces([ovsdb_peer])
         if ovn_charm.enable_services():
             # belated enablement of default certificates handler due to the
             # ``ovsdb-server`` processes must have finished database

@@ -42,12 +42,14 @@ class TestRegisteredHooks(test_utils.TestRegisteredHooks):
                 'announce_leader_ready': ('config.rendered',
                                           'certificates.connected',
                                           'certificates.available',
-                                          'leadership.is_leader',),
+                                          'leadership.is_leader',
+                                          'ovsdb-peer.connected',),
                 'certificates_in_config_tls': ('config.rendered',
                                                'config.changed',),
                 'enable_default_certificates': ('charm.installed',),
                 'initialize_ovsdbs': ('charm.installed',
-                                      'leadership.is_leader',),
+                                      'leadership.is_leader',
+                                      'ovsdb-peer.connected',),
                 'publish_addr_to_clients': ('ovsdb-peer.available',
                                             'leadership.set.ready',
                                             'certificates.connected',
@@ -76,15 +78,22 @@ class TestOvnCentralHandlers(test_utils.PatchHelper):
         self.provide_charm_instance().__exit__.return_value = None
 
     def test_announce_leader_ready(self):
+        self.patch_object(handlers.reactive, 'endpoint_from_flag')
         self.patch_object(handlers.leadership, 'leader_set')
+        ovsdb_peer = mock.MagicMock()
+        self.endpoint_from_flag.return_value = ovsdb_peer
         handlers.announce_leader_ready()
+        ovsdb_peer.publish_cluster_local_addr.assert_called_once_with()
         self.leader_set.assert_called_once_with({'ready': True})
 
     def test_initialize_ovsdbs(self):
+        self.patch_object(handlers.reactive, 'endpoint_from_flag')
         self.patch_object(handlers.charm, 'use_defaults')
         self.patch_object(handlers.reactive, 'set_flag')
+        ovsdb_peer = mock.MagicMock()
+        self.endpoint_from_flag.return_value = ovsdb_peer
         handlers.initialize_ovsdbs()
-        self.charm.render_with_interfaces.assert_called_once_with([])
+        self.charm.render_with_interfaces.assert_called_once_with([ovsdb_peer])
         self.charm.enable_services.assert_called_once_with()
         self.use_defaults.assert_called_once_with('certificates.available')
         self.set_flag.assert_called_once_with('config.rendered')

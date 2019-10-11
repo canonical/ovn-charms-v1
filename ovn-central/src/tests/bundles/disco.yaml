@@ -2,7 +2,7 @@ series: disco
 relations:
 - - vault:shared-db
   - mysql:shared-db
-- - ovn:certificates
+- - ovn-central:certificates
   - vault:certificates
 applications:
   mysql:
@@ -11,7 +11,7 @@ applications:
   vault:
     charm: cs:~openstack-charmers-next/vault
     num_units: 1
-  ovn:
+  ovn-central:
     series: disco
-    charm: cs:~openstack-charmers-next/ovn
-    num_units: 1
+    charm: cs:~openstack-charmers-next/ovn-central
+    num_units: 3
