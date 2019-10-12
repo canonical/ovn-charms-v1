@@ -1,1 +1,55 @@
-options: {}
+options:
+  interface-bridge-mappings:
+    type: string
+    default:
+    description: >
+      A space-delimited list of key-value pairs that map a network interface
+      MAC address to a local ovs bridge to which it should be connected.
+
+      Bridges referenced here must be mentioned in the `ovn-bridge-mappings`
+      configuration option.
+
+      If a match is found the bridge will be created if it does not already
+      exist, the matched interface will be added to it and the mapping found in
+      `ovn-bridge-mappings` will be added to the local OVSDB under the
+      `external_ids:ovn-bridge-mappings` key in the Open_vSwitch table.
+
+      An example value mapping two network interface mac address to two ovs
+      bridges would be:
+
+          00:00:5e:00:00:42:br-internet 00:00:5e:00:00:51:br-provider
+
+      NOTE: We explicitly do not allow blanket configuration through the use
+      of interface names here.  This is due to the fact that with OVN you get a
+      fully distributed network without the need for external networking
+      connected to every chassis in the network, and we want to break the habit
+      of doing so by requiring a well-informed configuration.
+  ovn-bridge-mappings:
+    type: string
+    default:
+    description: >
+      A space-delimited list of key-value pairs that map a physical network
+      name to a local ovs bridge that provides connectivity to that network.
+
+      The physical network name can be referenced when the administrator
+      programs the OVN logical flows either by talking directly to the
+      Northbound database or by interfacing with a Cloud Management System
+      (CMS).
+
+      Each charm unit will evaluate each key-value pair and determine if the
+      configuration is relevant for the host it is running on based on matches
+      found in the `interface-bridge-mappings` configuration option.
+
+      If a match is found the bridge will be created if it does not already
+      exist, the matched interface will be added to it and the mapping will be
+      added to the local OVSDB under the `external_ids:ovn-bridge-mappings` key
+      in the Open_vSwitch table.
+
+      An example value mapping two physical network names to two ovs bridges
+      would be:
+
+          physnet1:br-internet physnet2:br-provider
+
+      NOTE: Values in this configuration option will only have effect for units
+      that have a interface referenced in the `interface-bridge-mappings`
+      configuration option.
