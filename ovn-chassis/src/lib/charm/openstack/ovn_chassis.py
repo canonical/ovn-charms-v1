@@ -60,7 +60,6 @@ class OVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         '/etc/default/ovn-host': ['ovn-host'],
     }
     python_version = 3
-    source_config_key = 'source'
     # Name of unitdata key with information on whether to enable metadata
     metadata_kv_key = 'ovn-chassis-enable-metadata'
 
