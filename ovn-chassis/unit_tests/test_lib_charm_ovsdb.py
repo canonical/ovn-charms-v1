@@ -10,11 +10,35 @@ VSCTL_BRIDGE_TBL = '''
 '''
 
 
-class TestSimpleOVSDB(test_utils.PatchHelper):
+class TestOVSDB(test_utils.PatchHelper):
 
-    def setUp(self):
-        super().setUp()
-        self.target = ovsdb.SimpleOVSDB('atool', 'atable')
+    def test__run(self):
+        self.patch_object(ovsdb.subprocess, 'run')
+        self.run.return_value = 'aReturn'
+        self.assertEquals(ovsdb._run('aArg'), 'aReturn')
+        self.run.assert_called_once_with(
+            ('aArg',), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            check=True, universal_newlines=True)
+
+    def test_add_br(self):
+        self.patch_object(ovsdb, '_run')
+        ovsdb.add_br('br-x')
+        self._run.assert_called_once_with(
+            'ovs-vsctl', 'add-br', 'br-x')
+        self._run.reset_mock()
+        ovsdb.add_br('br-x', ('charm', 'managed'))
+        self._run.assert_called_once_with(
+            'ovs-vsctl', 'add-br', 'br-x', '--',
+            'br-set-external-id', 'charm', 'managed')
+
+    def test_add_port(self):
+        self.patch_object(ovsdb, '_run')
+        ovsdb.add_port('br-x', 'enp3s0f0')
+        self._run.assert_called_once_with(
+            'ovs-vsctl', 'add-port', 'br-x', 'enp3s0f0')
+
+
+class Helper(test_utils.PatchHelper):
 
     def patch_target(self, attr, return_value=None):
         mocked = mock.patch.object(self.target, attr)
@@ -24,19 +48,18 @@ class TestSimpleOVSDB(test_utils.PatchHelper):
         self._patches_start[attr] = started
         setattr(self, attr, started)
 
-    def test_run(self):
-        self.patch_object(ovsdb.subprocess, 'run')
-        self.run.return_value = 'aReturn'
-        self.assertEquals(self.target.run('aArg'), 'aReturn')
-        self.run.assert_called_once_with(
-            ('aArg',), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            check=True, universal_newlines=True)
+
+class TestSimpleOVSDB(Helper):
+
+    def setUp(self):
+        super().setUp()
+        self.target = ovsdb.SimpleOVSDB('atool', 'atable')
 
     def test__find_tbl(self):
-        self.patch_target('run')
+        self.patch_object(ovsdb, '_run')
         cp = mock.MagicMock()
         cp.stdout = mock.PropertyMock().return_value = VSCTL_BRIDGE_TBL
-        self.run.return_value = cp
+        self._run.return_value = cp
         self.maxDiff = None
         expect = {
             '_uuid': '1e21ba48-61ff-4b32-b35e-cb80411da351',
@@ -68,35 +91,35 @@ class TestSimpleOVSDB(test_utils.PatchHelper):
         for el in self.target:
             self.assertDictEqual(el, expect)
             break
-        self.run.assert_called_once_with(
+        self._run.assert_called_once_with(
             'atool', '-f', 'json', 'find', 'atable')
-        self.run.reset_mock()
+        self._run.reset_mock()
         # this in effect also tests the find front end method
         for el in self.target.find(condition='name=br-test'):
             break
-        self.run.assert_called_once_with(
+        self._run.assert_called_once_with(
             'atool', '-f', 'json', 'find', 'atable', 'name=br-test')
 
     def test_clear(self):
-        self.patch_target('run')
+        self.patch_object(ovsdb, '_run')
         self.target.clear('1e21ba48-61ff-4b32-b35e-cb80411da351',
                           'external_ids')
-        self.run.assert_called_once_with(
+        self._run.assert_called_once_with(
             'atool', 'clear', 'atable',
             '1e21ba48-61ff-4b32-b35e-cb80411da351', 'external_ids')
 
     def test_remove(self):
-        self.patch_target('run')
+        self.patch_object(ovsdb, '_run')
         self.target.remove('1e21ba48-61ff-4b32-b35e-cb80411da351',
                            'external_ids', 'other')
-        self.run.assert_called_once_with(
+        self._run.assert_called_once_with(
             'atool', 'remove', 'atable',
             '1e21ba48-61ff-4b32-b35e-cb80411da351', 'external_ids', 'other')
 
     def test_set(self):
-        self.patch_target('run')
+        self.patch_object(ovsdb, '_run')
         self.target.set('1e21ba48-61ff-4b32-b35e-cb80411da351',
                         'external_ids:other', 'value')
-        self.run.assert_called_once_with(
+        self._run.assert_called_once_with(
             'atool', 'set', 'atable',
             '1e21ba48-61ff-4b32-b35e-cb80411da351', 'external_ids:other=value')
