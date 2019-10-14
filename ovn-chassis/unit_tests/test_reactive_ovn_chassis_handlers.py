@@ -33,9 +33,16 @@ class TestRegisteredHooks(test_utils.TestRegisteredHooks):
             'when': {
                 'configure_ovs': ('ovsdb.available',),
                 'enable_metadata': ('nova-compute.connected',),
+                'configure_bridges': ('charm.installed',),
             },
             'when_not': {
                 'disable_metadata': ('nova-compute.connected',),
+            },
+            'when_any': {
+                'configure_bridges': (
+                    'config.changed.ovn-bridge-mappings',
+                    'config.changed.interface-bridge-mappings',
+                    'run-default-upgrade-charm',),
             },
         }
         # test that the hooks were registered via the

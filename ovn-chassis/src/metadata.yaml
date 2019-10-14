@@ -8,7 +8,7 @@ tags:
   - networking
 series:
   - bionic
-  - disco
+  - eoan
 subordinate: true
 provides:
   nova-compute:

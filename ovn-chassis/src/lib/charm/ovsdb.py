@@ -33,6 +33,16 @@ def add_br(bridge, external_id=None):
     _run(*cmd)
 
 
+def del_br(bridge):
+    """Remove bridge.
+
+    :param bridge: Name of bridge to remove
+    :type bridge: str
+    :raises: subprocess.CalledProcessError
+    """
+    _run('ovs-vsctl', 'del-br', bridge)
+
+
 def add_port(bridge, port, external_id=None):
     """Add port to bridge and optionally attach a external_id to port.
 
@@ -51,6 +61,18 @@ def add_port(bridge, port, external_id=None):
             ports.set(port['_uuid'],
                       'external_ids:{}'.format(external_id[0]),
                       external_id[1])
+
+
+def del_port(bridge, port):
+    """Remove port from bridge.
+
+    :param bridge: Name of bridge to remove port from
+    :type bridge: str
+    :param port: Name of port to remove
+    :type port: str
+    :raises: subprocess.CalledProcessError
+    """
+    _run('ovs-vsctl', 'del-port', bridge, port)
 
 
 def list_ports(bridge):

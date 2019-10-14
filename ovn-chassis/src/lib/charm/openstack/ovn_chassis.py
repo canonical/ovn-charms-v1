@@ -3,9 +3,12 @@ import os
 import subprocess
 
 import charmhelpers.core as ch_core
+import charmhelpers.contrib.openstack.context as os_context
 
 import charms_openstack.adapters
 import charms_openstack.charm
+
+import charm.ovsdb as ovsdb
 
 
 OVS_ETCDIR = '/etc/openvswitch'
@@ -138,3 +141,80 @@ class OVNChassisCharm(charms_openstack.charm.OpenStackCharm):
                      'external-ids:ovn-encap-ip={}'
                      .format(ovsdb_interface.cluster_local_addr))
             self.restart_all()
+
+    def configure_bridges(self):
+        # we use the resolve_port method of NeutronPortContext to translate
+        # MAC addresses into interface names
+        npc = os_context.NeutronPortContext()
+
+        # build map of bridge config with existing interfaces on host
+        ifbridges = collections.defaultdict(list)
+        config_ifbm = self.config['interface-bridge-mappings'] or ''
+        for pair in config_ifbm.split():
+            ifname_or_mac, bridge = pair.rsplit(':', 1)
+            ifbridges[bridge].append(ifname_or_mac)
+        for br in ifbridges.keys():
+            # resolve mac addresses to interface names
+            ifbridges[br] = npc.resolve_ports(ifbridges[br])
+        # remove empty bridges
+        ifbridges = {k: v for k, v in ifbridges.items() if len(v) > 0}
+
+        # build map of bridges to ovn networks with existing if-mapping on host
+        # and at the same time build ovn-bridge-mappings string
+        ovn_br_map_str = ''
+        ovnbridges = collections.defaultdict(list)
+        config_obm = self.config['ovn-bridge-mappings'] or ''
+        for pair in sorted(config_obm.split()):
+            network, bridge = pair.split(':', 1)
+            if bridge in ifbridges:
+                ovnbridges[bridge].append(network)
+                if ovn_br_map_str:
+                    ovn_br_map_str += ','
+                ovn_br_map_str += '{}:{}'.format(network, bridge)
+
+        bridges = ovsdb.SimpleOVSDB('ovs-vsctl', 'bridge')
+        ports = ovsdb.SimpleOVSDB('ovs-vsctl', 'port')
+        for bridge in bridges.find('external_ids:charm-ovn-chassis=managed'):
+            # remove bridges and ports that are managed by us and no longer in
+            # config
+            if bridge['name'] not in ifbridges:
+                ch_core.hookenv.log('removing bridge "{}" as it is no longer'
+                                    'present in configuration for this unit.'
+                                    .format(bridge['name']),
+                                    level=ch_core.hookenv.DEBUG)
+                ovsdb.del_br(bridge['name'])
+            else:
+                for port in ports.find('external_ids:charm-ovn-chassis={}'
+                                       .format(bridge['name'])):
+                    if port['name'] not in ifbridges[bridge['name']]:
+                        ch_core.hookenv.log('removing port "{}" from bridge '
+                                            '"{}" as it is no longer present '
+                                            'in configuration for this unit.'
+                                            .format(port['name'],
+                                                    bridge['name']),
+                                            level=ch_core.hookenv.DEBUG)
+                        ovsdb.del_port(bridge['name'], port['name'])
+        for br in ifbridges.keys():
+            if br not in ovnbridges:
+                continue
+            try:
+                next(bridges.find('name={}'.format(br)))
+            except StopIteration:
+                ovsdb.add_br(br, ('charm-ovn-chassis', 'managed'))
+            else:
+                ch_core.hookenv.log('skip adding already existing bridge "{}"'
+                                    .format(br), level=ch_core.hookenv.DEBUG)
+            for port in ifbridges[br]:
+                if port not in ovsdb.list_ports(br):
+                    ovsdb.add_port(br, port, ('charm-ovn-chassis', br))
+                else:
+                    ch_core.hookenv.log('skip adding already existing port '
+                                        '"{}" to bridge "{}"'
+                                        .format(port, br),
+                                        level=ch_core.hookenv.DEBUG)
+
+        opvs = ovsdb.SimpleOVSDB('ovs-vsctl', 'Open_vSwitch')
+        if ovn_br_map_str:
+            opvs.set('.', 'external_ids:ovn-bridge-mappings', ovn_br_map_str)
+        else:
+            opvs.remove('.', 'external_ids', 'ovn-bridge-mappings')

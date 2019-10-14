@@ -4,7 +4,11 @@ options:
     default:
     description: >
       A space-delimited list of key-value pairs that map a network interface
-      MAC address to a local ovs bridge to which it should be connected.
+      MAC address or name to a local ovs bridge to which it should be
+      connected.
+
+      Note: MAC addresses of physical interfaces that belong to a bond will be
+      resolved to the bond name and the bond will be added to the ovs bridge.
 
       Bridges referenced here must be mentioned in the `ovn-bridge-mappings`
       configuration option.
@@ -17,13 +21,21 @@ options:
       An example value mapping two network interface mac address to two ovs
       bridges would be:
 
-          00:00:5e:00:00:42:br-internet 00:00:5e:00:00:51:br-provider
+          00:00:5e:00:00:42:br-internet enp3s0f0:br-provider
 
-      NOTE: We explicitly do not allow blanket configuration through the use
-      of interface names here.  This is due to the fact that with OVN you get a
-      fully distributed network without the need for external networking
-      connected to every chassis in the network, and we want to break the habit
-      of doing so by requiring a well-informed configuration.
+
+      Note: OVN gives you distributed East/West and highly available
+      North/South routing by default.  You do not need to add provider networks
+      for use with external Layer3 connectivity to all chassis.
+
+      Doing so will create a scaling problem at the physical network layer
+      that needs to be resolved with globally shared Layer2 (does not scale) or
+      tunneling at the top-of-rack switch layer (adds complexity) and is
+      generally not a recommended configuration.
+
+      Add provider networks for use with external Layer3 connectivity to
+      individual chassis located near the datacenter border gateways by adding
+      the MAC address of the physical interfaces of those units.
   ovn-bridge-mappings:
     type: string
     default:

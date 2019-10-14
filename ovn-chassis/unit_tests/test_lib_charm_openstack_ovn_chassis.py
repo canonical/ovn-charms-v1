@@ -128,3 +128,66 @@ class TestOVNChassisCharm(Helper):
             mock.call('ovs-vsctl', 'set', 'open', '.',
                       'external-ids:ovn-encap-ip=cluster_local_addr'),
         ])
+
+    def test_configure_bridges(self):
+        self.patch_object(ovn_chassis.os_context, 'NeutronPortContext')
+        npc = mock.MagicMock()
+
+        def _fake_resolve_ports(mac_or_if):
+            result = []
+            for entry in mac_or_if:
+                if ':' in entry:
+                    result.append('eth0')
+                    continue
+                result.append(entry)
+            return result
+
+        npc.resolve_ports.side_effect = _fake_resolve_ports
+        self.NeutronPortContext.return_value = npc
+        self.patch_target('config')
+        self.config.__getitem__.side_effect = [
+            '00:01:02:03:04:05:br-provider eth5:br-other',
+            'provider:br-provider other:br-other']
+        self.patch_object(ovn_chassis.ovsdb, 'SimpleOVSDB')
+        bridges = mock.MagicMock()
+        bridges.find.side_effect = [
+            [
+                {'name': 'delete-bridge'},
+                {'name': 'br-other'}
+            ],
+            StopIteration,
+        ]
+        ports = mock.MagicMock()
+        ports.find.side_effect = [[{'name': 'delete-port'}]]
+        opvs = mock.MagicMock()
+        self.SimpleOVSDB.side_effect = [bridges, ports, opvs]
+        self.patch_object(ovn_chassis.ovsdb, 'del_br')
+        self.patch_object(ovn_chassis.ovsdb, 'del_port')
+        self.patch_object(ovn_chassis.ovsdb, 'add_br')
+        self.patch_object(ovn_chassis.ovsdb, 'list_ports')
+        self.list_ports().__iter__.return_value = []
+        self.patch_object(ovn_chassis.ovsdb, 'add_port')
+        self.target.configure_bridges()
+        npc.resolve_ports.assert_has_calls([
+            mock.call(['00:01:02:03:04:05']),
+            mock.call(['eth5']),
+        ], any_order=True)
+        bridges.find.assert_has_calls([
+            mock.call('name=br-provider'),
+            mock.call('name=br-other'),
+        ], any_order=True)
+        self.del_br.assert_called_once_with('delete-bridge')
+        self.del_port.assert_called_once_with('br-other', 'delete-port')
+        self.add_br.assert_has_calls([
+            mock.call('br-provider', ('charm-ovn-chassis', 'managed')),
+            mock.call('br-other', ('charm-ovn-chassis', 'managed')),
+        ], any_order=True)
+        self.add_port.assert_has_calls([
+            mock.call(
+                'br-provider', 'eth0', ('charm-ovn-chassis', 'br-provider')),
+            mock.call(
+                'br-other', 'eth5', ('charm-ovn-chassis', 'br-other')),
+        ], any_order=True)
+        opvs.set.assert_called_once_with(
+            '.', 'external_ids:ovn-bridge-mappings',
+            'other:br-other,provider:br-provider')

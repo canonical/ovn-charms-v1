@@ -33,6 +33,12 @@ class TestOVSDB(test_utils.PatchHelper):
             'protocols=OpenFlow13', '--',
             'br-set-external-id', 'br-x', 'charm', 'managed')
 
+    def test_del_br(self):
+        self.patch_object(ovsdb, '_run')
+        ovsdb.del_br('br-x')
+        self._run.assert_called_once_with(
+            'ovs-vsctl', 'del-br', 'br-x')
+
     def test_add_port(self):
         self.patch_object(ovsdb, '_run')
         ovsdb.add_port('br-x', 'enp3s0f0')
