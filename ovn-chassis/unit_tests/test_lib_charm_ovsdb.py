@@ -29,7 +29,7 @@ class TestOVSDB(test_utils.PatchHelper):
         ovsdb.add_br('br-x', ('charm', 'managed'))
         self._run.assert_called_once_with(
             'ovs-vsctl', 'add-br', 'br-x', '--',
-            'br-set-external-id', 'charm', 'managed')
+            'br-set-external-id', 'br-x', 'charm', 'managed')
 
     def test_add_port(self):
         self.patch_object(ovsdb, '_run')

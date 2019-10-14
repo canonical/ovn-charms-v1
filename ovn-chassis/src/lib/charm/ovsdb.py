@@ -27,7 +27,7 @@ def add_br(bridge, external_id=None):
     """
     cmd = ['ovs-vsctl', 'add-br', bridge]
     if external_id:
-        cmd.extend(('--', 'br-set-external-id'))
+        cmd.extend(('--', 'br-set-external-id', bridge))
         cmd.extend(external_id)
     _run(*cmd)
 
