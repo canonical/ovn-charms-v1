@@ -24,11 +24,13 @@ class TestOVSDB(test_utils.PatchHelper):
         self.patch_object(ovsdb, '_run')
         ovsdb.add_br('br-x')
         self._run.assert_called_once_with(
-            'ovs-vsctl', 'add-br', 'br-x')
+            'ovs-vsctl', 'add-br', 'br-x', '--', 'set', 'bridge', 'br-x',
+            'protocols=OpenFlow13')
         self._run.reset_mock()
         ovsdb.add_br('br-x', ('charm', 'managed'))
         self._run.assert_called_once_with(
-            'ovs-vsctl', 'add-br', 'br-x', '--',
+            'ovs-vsctl', 'add-br', 'br-x', '--', 'set', 'bridge', 'br-x',
+            'protocols=OpenFlow13', '--',
             'br-set-external-id', 'br-x', 'charm', 'managed')
 
     def test_add_port(self):
@@ -36,6 +38,12 @@ class TestOVSDB(test_utils.PatchHelper):
         ovsdb.add_port('br-x', 'enp3s0f0')
         self._run.assert_called_once_with(
             'ovs-vsctl', 'add-port', 'br-x', 'enp3s0f0')
+
+    def test_list_ports(self):
+        self.patch_object(ovsdb, '_run')
+        ovsdb.list_ports('someBridge')
+        self._run.assert_called_once_with('ovs-vsctl', 'list-ports',
+                                          'someBridge')
 
 
 class Helper(test_utils.PatchHelper):

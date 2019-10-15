@@ -25,7 +25,8 @@ def add_br(bridge, external_id=None):
     :type external_id: Option[None,Union[str,str]]
     :raises: subprocess.CalledProcessError
     """
-    cmd = ['ovs-vsctl', 'add-br', bridge]
+    cmd = ['ovs-vsctl', 'add-br', bridge, '--', 'set', 'bridge', bridge,
+           'protocols=OpenFlow13']
     if external_id:
         cmd.extend(('--', 'br-set-external-id', bridge))
         cmd.extend(external_id)
@@ -50,6 +51,18 @@ def add_port(bridge, port, external_id=None):
             ports.set(port['_uuid'],
                       'external_ids:{}'.format(external_id[0]),
                       external_id[1])
+
+
+def list_ports(bridge):
+    """List ports on a bridge.
+
+    :param bridge: Name of bridge to list ports on
+    :type bridge: str
+    :returns: List of ports
+    :rtype: List
+    """
+    cp = _run('ovs-vsctl', 'list-ports', bridge)
+    return cp.stdout.splitlines()
 
 
 class SimpleOVSDB(object):
