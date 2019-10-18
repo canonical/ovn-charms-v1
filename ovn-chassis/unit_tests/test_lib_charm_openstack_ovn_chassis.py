@@ -188,6 +188,9 @@ class TestOVNChassisCharm(Helper):
             mock.call(
                 'br-other', 'eth5', ('charm-ovn-chassis', 'br-other')),
         ], any_order=True)
-        opvs.set.assert_called_once_with(
-            '.', 'external_ids:ovn-bridge-mappings',
-            'other:br-other,provider:br-provider')
+        opvs.set.assert_has_calls([
+            mock.call('.', 'external_ids:ovn-bridge-mappings',
+                      'other:br-other,provider:br-provider'),
+            mock.call('.', 'external_ids:ovn-cms-options',
+                      'enable-chassis-as-gw'),
+        ])

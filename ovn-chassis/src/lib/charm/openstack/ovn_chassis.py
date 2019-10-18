@@ -216,5 +216,10 @@ class OVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         opvs = ovsdb.SimpleOVSDB('ovs-vsctl', 'Open_vSwitch')
         if ovn_br_map_str:
             opvs.set('.', 'external_ids:ovn-bridge-mappings', ovn_br_map_str)
+            # NOTE(fnordahl): Workaround for LP: #1848757
+            opvs.set('.', 'external_ids:ovn-cms-options',
+                     'enable-chassis-as-gw')
         else:
             opvs.remove('.', 'external_ids', 'ovn-bridge-mappings')
+            # NOTE(fnordahl): Workaround for LP: #1848757
+            opvs.remove('.', 'external_ids', 'ovn-cms-options')
