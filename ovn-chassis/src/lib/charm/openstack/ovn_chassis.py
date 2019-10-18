@@ -1,3 +1,4 @@
+import collections
 import os
 import subprocess
 
@@ -42,7 +43,14 @@ class OVNChassisCharmRelationAdapters(
 
 
 class OVNChassisCharm(charms_openstack.charm.OpenStackCharm):
-    release = 'stein'
+    # OpenvSwitch and OVN is distributed as part of the Ubuntu Cloud Archive
+    # Pockets get their name from OpenStack releases
+    release = 'train'
+    package_codenames = {
+        'ovn-host': collections.OrderedDict([
+            ('2.12', 'train'),
+        ]),
+    }
     name = 'ovn-chassis'
     packages = ['ovn-host']
     services = ['ovn-host']
