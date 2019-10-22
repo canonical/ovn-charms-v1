@@ -16,9 +16,11 @@ is managed by the charm.
 OVN makes use of Public Key Infrastructure (PKI) to authenticate and authorize
 control plane communication.  The charm requires a Certificate Authority to be
 present in the model as represented by the `certificates` relation.
-The [Charmed OpenStack OVN Overlay](https://github.com/openstack-charmers/openstack-bundles/blob/master/stable/overlays/openstack-base-ovn-overlay.yaml)
-gives an example of how you can realize this with the help from
-[Vault](https://jaas.ai/vault/).
+
+There is a [OVN overlay bundle](https://github.com/openstack-charmers/openstack-bundles/blob/master/development/overlays/openstack-base-ovn.yaml)
+for use in conjunction with the [OpenStack Base bundle](https://github.com/openstack-charmers/openstack-bundles/blob/master/development/openstack-base-bionic-train/bundle.yaml)
+which give an example of how you can automate certificate lifecycle management
+with the help from [Vault](https://jaas.ai/vault/).
 
 ## Network Spaces support
 
