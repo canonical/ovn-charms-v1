@@ -122,11 +122,13 @@ class TestOVNChassisCharm(Helper):
         self.run.assert_has_calls([
             mock.call('ovs-vsctl', 'set-ssl', mock.ANY, mock.ANY, mock.ANY),
             mock.call('ovs-vsctl', 'set', 'open', '.',
+                      'external-ids:ovn-encap-type=geneve', '--',
+                      'set', 'open', '.',
+                      'external-ids:ovn-encap-ip=cluster_local_addr', '--',
+                      'set', 'open', '.',
+                      'external-ids:system-id=cluster_local_addr'),
+            mock.call('ovs-vsctl', 'set', 'open', '.',
                       'external-ids:ovn-remote=dbsbconn'),
-            mock.call('ovs-vsctl', 'set', 'open', '.',
-                      'external-ids:ovn-encap-type=geneve'),
-            mock.call('ovs-vsctl', 'set', 'open', '.',
-                      'external-ids:ovn-encap-ip=cluster_local_addr'),
         ])
 
     def test_configure_bridges(self):

@@ -1,3 +1,5 @@
+# TODO: much of this code is shared with the ``ovn-dedicated-chassis`` and
+# ``ovn-central`` charms and we should move this to a layer or library.
 import json
 import subprocess
 

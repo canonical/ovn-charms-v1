@@ -1,5 +1,6 @@
 import collections
 import os
+import socket
 import subprocess
 
 import charmhelpers.core as ch_core
@@ -130,16 +131,21 @@ class OVNChassisCharm(charms_openstack.charm.OpenStackCharm):
                      ovn_cert(self.adapters_instance),
                      ovn_ca_cert(self.adapters_instance))
             self.run('ovs-vsctl',
+                     'set', 'open', '.',
+                     'external-ids:ovn-encap-type=geneve', '--',
+                     'set', 'open', '.',
+                     'external-ids:ovn-encap-ip={}'
+                     .format(ovsdb_interface.cluster_local_addr), '--',
+                     'set', 'open', '.',
+                     'external-ids:system-id={}'
+                     .format(
+                         socket.getfqdn(ovsdb_interface.cluster_local_addr)))
+            self.run('ovs-vsctl',
                      'set',
                      'open',
                      '.',
                      'external-ids:ovn-remote={}'
                      .format(','.join(ovsdb_interface.db_sb_connection_strs)))
-            self.run('ovs-vsctl', 'set', 'open', '.',
-                     'external-ids:ovn-encap-type=geneve')
-            self.run('ovs-vsctl', 'set', 'open', '.',
-                     'external-ids:ovn-encap-ip={}'
-                     .format(ovsdb_interface.cluster_local_addr))
             self.restart_all()
 
     def configure_bridges(self):
