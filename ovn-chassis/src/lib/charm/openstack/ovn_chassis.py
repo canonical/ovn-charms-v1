@@ -3,6 +3,8 @@ import os
 import socket
 import subprocess
 
+import charms.reactive as reactive
+
 import charmhelpers.core as ch_core
 import charmhelpers.contrib.openstack.context as os_context
 
@@ -64,41 +66,17 @@ class OVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         '/etc/default/ovn-host': ['ovn-host'],
     }
     python_version = 3
-    # Name of unitdata key with information on whether to enable metadata
-    metadata_kv_key = 'ovn-chassis-enable-metadata'
 
     def __init__(self, **kwargs):
-        enable_metadata = ch_core.unitdata.kv().get(
-            self.metadata_kv_key, False)
-        print(enable_metadata)
-        if enable_metadata:
-            # XXX for Train onwards, we should use the
-            #     ``networking-ovn-metadata-agent`` package
+        if reactive.is_flag_set('charm.ovn-chassis.enable-openstack-metadata'):
             metadata_agent = 'networking-ovn-metadata-agent'
-            self.packages.extend(['python3-networking-ovn', 'haproxy'])
+            self.packages.extend(['networking-ovn-metadata-agent', 'haproxy'])
             self.services.append(metadata_agent)
             self.restart_map.update({
                 '/etc/neutron/'
                 'networking_ovn_metadata_agent.ini': [metadata_agent],
-                '/etc/init.d/''networking-ovn-metadata-agent': [
-                    metadata_agent],
-                '/lib/systemd/system/networking-ovn-metadata-agent.service': (
-                    [metadata_agent]),
             })
-            self.permission_override_map = {
-                '/etc/init.d/networking-ovn-metadata-agent': 0o755,
-            }
         super().__init__(**kwargs)
-
-    def disable_metadata(self):
-        db = ch_core.unitdata.kv()
-        db.unset(self.metadata_kv_key)
-        db.flush()
-
-    def enable_metadata(self):
-        db = ch_core.unitdata.kv()
-        db.set(self.metadata_kv_key, True)
-        db.flush()
 
     def run(self, *args):
         cp = subprocess.run(

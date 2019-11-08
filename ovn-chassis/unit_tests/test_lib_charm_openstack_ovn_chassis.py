@@ -43,7 +43,14 @@ class Helper(test_utils.PatchHelper):
     def setUp(self):
         super().setUp()
         self.patch_release(ovn_chassis.OVNChassisCharm.release)
+        self.patch_object(ovn_chassis.reactive, 'is_flag_set',
+                          return_value=False)
         self.target = ovn_chassis.OVNChassisCharm()
+        # remove the 'is_flag_set' patch so the tests can use it
+        self._patches['is_flag_set'].stop()
+        setattr(self, 'is_flag_set', None)
+        del(self._patches['is_flag_set'])
+        del(self._patches_start['is_flag_set'])
 
     def patch_target(self, attr, return_value=None):
         mocked = mock.patch.object(self.target, attr)
@@ -56,19 +63,17 @@ class Helper(test_utils.PatchHelper):
 
 class TestOVNChassisCharm(Helper):
 
-    def test_disable_metadata(self):
-        self.patch_object(ovn_chassis.ch_core.unitdata, 'kv')
-        db = mock.MagicMock()
-        self.kv.return_value = db
-        self.target.disable_metadata()
-        db.unset.assert_called_once_with(self.target.metadata_kv_key)
-
-    def test_enable_metadata(self):
-        self.patch_object(ovn_chassis.ch_core.unitdata, 'kv')
-        db = mock.MagicMock()
-        self.kv.return_value = db
-        self.target.enable_metadata()
-        db.set.assert_called_once_with(self.target.metadata_kv_key, True)
+    def test_optional_openstack_metadata(self):
+        self.assertEquals(self.target.packages, ['ovn-host'])
+        self.assertEquals(self.target.services, ['ovn-host'])
+        self.patch_object(ovn_chassis.reactive, 'is_flag_set',
+                          return_value=True)
+        c = ovn_chassis.OVNChassisCharm()
+        self.assertEquals(c.packages, [
+            'ovn-host', 'networking-ovn-metadata-agent', 'haproxy'
+        ])
+        self.assertEquals(c.services, [
+            'ovn-host', 'networking-ovn-metadata-agent'])
 
     def test_run(self):
         self.patch_object(ovn_chassis.subprocess, 'run')

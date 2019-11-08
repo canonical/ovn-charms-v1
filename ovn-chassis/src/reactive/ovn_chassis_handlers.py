@@ -20,32 +20,15 @@ charm.use_defaults(
 
 @reactive.when_not('nova-compute.connected')
 def disable_metadata():
-    with charm.provide_charm_instance() as charm_instance:
-        charm_instance.disable_metadata()
-        charm_instance.assess_status()
+    reactive.clear_flag('charm.ovn-chassis.enable-openstack-metadata')
 
 
 @reactive.when('nova-compute.connected')
 def enable_metadata():
+    reactive.set_flag('charm.ovn-chassis.enable-openstack-metadata')
     nova_compute = reactive.endpoint_from_flag('nova-compute.connected')
     nova_compute.publish_shared_secret()
     with charm.provide_charm_instance() as charm_instance:
-        ch_core.hookenv.log(
-            'DEBUG: {} {} {} {}'
-            .format(charm_instance,
-                    charm_instance.packages,
-                    charm_instance.services,
-                    charm_instance.restart_map),
-            level=ch_core.hookenv.INFO)
-        charm_instance.enable_metadata()
-    with charm.provide_charm_instance() as charm_instance:
-        ch_core.hookenv.log(
-            'DEBUG: {} {} {} {}'
-            .format(charm_instance,
-                    charm_instance.packages,
-                    charm_instance.services,
-                    charm_instance.restart_map),
-            level=ch_core.hookenv.INFO)
         charm_instance.install()
         charm_instance.assess_status()
 

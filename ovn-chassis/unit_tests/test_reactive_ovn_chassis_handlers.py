@@ -62,17 +62,20 @@ class TestOvnHandlers(test_utils.PatchHelper):
         self.provide_charm_instance().__exit__.return_value = None
 
     def test_disable_metadata(self):
+        self.patch_object(handlers.reactive, 'clear_flag')
         handlers.disable_metadata()
-        self.charm.disable_metadata.assert_called_once_with()
-        self.charm.assess_status.assert_called_once_with()
+        self.clear_flag.assert_called_once_with(
+            'charm.ovn-chassis.enable-openstack-metadata')
 
     def test_enable_metadata(self):
         self.patch_object(handlers.reactive, 'endpoint_from_flag')
+        self.patch_object(handlers.reactive, 'set_flag')
         nova_compute = mock.MagicMock()
         self.endpoint_from_flag.return_value = nova_compute
         handlers.enable_metadata()
+        self.set_flag.assert_called_once_with(
+            'charm.ovn-chassis.enable-openstack-metadata')
         nova_compute.publish_shared_secret.assert_called_once_with()
-        self.charm.enable_metadata.assert_called_once_with()
         self.charm.install.assert_called_once_with()
         self.charm.assess_status.assert_called_once_with()
 
