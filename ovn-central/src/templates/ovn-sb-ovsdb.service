@@ -5,7 +5,7 @@
 ###############################################################################
 [Unit]
 Description=Open vSwitch database server for OVN Southbound database
-After=network.target openvswitch-switch.service
+After=network.target
 PartOf=ovn-central.service
 DefaultDependencies=no
 

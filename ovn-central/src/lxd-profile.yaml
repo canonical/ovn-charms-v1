@@ -1,6 +1,2 @@
-comment: |
-  NOTE(fnordahl): This is not required by the services the charm ultimately
-  will run, but is currently required by how it is packaged.  We should work
-  towards not having this dependency.
 config:
-  linux.kernel_modules: openvswitch
+  linux.kernel_modules: ip_tables,ip6_tables

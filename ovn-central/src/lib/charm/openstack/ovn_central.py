@@ -94,12 +94,19 @@ class OVNCentralCharm(charms_openstack.charm.OpenStackCharm):
         We also configure source before installing as OpenvSwitch and OVN
         packages are distributed as part of the UCA.
         """
+        # NOTE(fnordahl) The OVN central components are currently packaged with
+        # a dependency on openvswitch-switch, but it does not need the switch
+        # or stock ovsdb running.
         service_masks = [
-            '/etc/systemd/system/ovn-central.service',
+            'openvswitch-switch.service',
+            'ovs-vswitchd.service',
+            'ovsdb-server.service',
+            'ovn-central.service',
         ]
         for service_file in service_masks:
-            if not os.path.islink(service_file):
-                os.symlink('/dev/null', service_file)
+            abs_path_svc = os.path.join('/etc/systemd/system', service_file)
+            if not os.path.islink(abs_path_svc):
+                os.symlink('/dev/null', abs_path_svc)
         self.configure_source()
         super().install()
 
@@ -196,11 +203,6 @@ class OVNCentralCharm(charms_openstack.charm.OpenStackCharm):
                                 tls_object['cert'],
                                 tls_object['key'],
                                 cn='host')
-            self.run('ovs-vsctl',
-                     'set-ssl',
-                     ovn_key(self.adapters_instance),
-                     ovn_cert(self.adapters_instance),
-                     ovn_ca_cert(self.adapters_instance))
             if (reactive.is_flag_set('leadership.is_leader') and not
                     reactive.is_flag_set('leadership.set.ready')):
                 # This is one-time set up at cluster creation and can only be
@@ -238,19 +240,3 @@ class OVNCentralCharm(charms_openstack.charm.OpenStackCharm):
                          'add', 'SB_Global', '.', 'connections', '@connection')
             self.restart_all()
             break
-
-    def configure_ovn_remote(self, ovsdb_interface):
-        """Configure the OVN remote setting in the local OVSDB.
-
-        The value is used by command line tools run on this unit.
-
-        :param ovsdb_interface: OVSDB interface instance
-        :type ovsdb_interface: reactive.Endpoint derived class
-        :raises: subprocess.CalledProcessError
-        """
-        self.run('ovs-vsctl',
-                 'set',
-                 'open',
-                 '.',
-                 'external-ids:ovn-remote={}'
-                 .format(','.join(ovsdb_interface.db_sb_connection_strs)))

@@ -65,12 +65,14 @@ class TestOVNCentralCharm(Helper):
         self.patch_target('configure_source')
         self.target.install()
         calls = []
-        for service in self.target.services:
+        for service in ('openvswitch-switch', 'ovs-vswitchd', 'ovsdb-server',
+                        self.target.services[0],):
             calls.append(
                 mock.call('/etc/systemd/system/{}.service'.format(service)))
         self.islink.assert_has_calls(calls)
         calls = []
-        for service in self.target.services:
+        for service in ('openvswitch-switch', 'ovs-vswitchd', 'ovsdb-server',
+                        self.target.services[0],):
             calls.append(
                 mock.call('/dev/null',
                           '/etc/systemd/system/{}.service'.format(service)))
@@ -161,11 +163,6 @@ class TestOVNCentralCharm(Helper):
                 'fakekey',
                 cn='host')
             self.target.run.assert_has_calls([
-                mock.call('ovs-vsctl',
-                          'set-ssl',
-                          '/etc/openvswitch/key_host',
-                          '/etc/openvswitch/cert_host',
-                          '/etc/openvswitch/ovn-central.crt'),
                 mock.call('ovn-nbctl',
                           'set-connection',
                           'pssl:6641'),
@@ -178,28 +175,3 @@ class TestOVNCentralCharm(Helper):
                           'add', 'SB_Global', '.', 'connections',
                           '@connection'),
             ])
-            self.is_flag_set.side_effect = [False, True]
-            self.target.run.reset_mock()
-            self.target.configure_tls()
-            self.target.run.assert_has_calls([
-                mock.call('ovs-vsctl',
-                          'set-ssl',
-                          '/etc/openvswitch/key_host',
-                          '/etc/openvswitch/cert_host',
-                          '/etc/openvswitch/ovn-central.crt'),
-            ])
-
-    def test_configure_ovn_remote(self):
-        self.patch_target('run')
-        ovsdb_interface = mock.MagicMock()
-        ovsdb_interface.db_sb_connection_strs = \
-            mock.PropertyMock().return_value = [
-                'ssl:a.b.c.d:6642',
-                'ssl:a.b.c.d:6642',
-                'ssl:a.b.c.d:6642',
-            ]
-        self.target.configure_ovn_remote(ovsdb_interface)
-        self.run.assert_called_once_with(
-            'ovs-vsctl', 'set', 'open', '.',
-            'external-ids:ovn-remote='
-            'ssl:a.b.c.d:6642,ssl:a.b.c.d:6642,ssl:a.b.c.d:6642')
