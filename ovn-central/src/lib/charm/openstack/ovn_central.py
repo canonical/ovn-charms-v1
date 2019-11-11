@@ -19,6 +19,7 @@ import subprocess
 import charms.reactive as reactive
 
 import charmhelpers.core as ch_core
+from charmhelpers.contrib.network import ufw as ch_ufw
 
 import charms_openstack.adapters
 import charms_openstack.charm
@@ -230,13 +231,60 @@ class OVNCentralCharm(charms_openstack.charm.OpenStackCharm):
                          'target="pssl:{}"'
                          .format(ovsdb_client.db_sb_port), '--',
                          'add', 'SB_Global', '.', 'connections', '@connection')
+                # NOTE(fnordahl) the listener configuration is written to the
+                # database and used by all units, so we cannot bind to specific
+                # space/address here.  We might consider not using listener
+                # configuration from DB, but that is currently not supported
+                # by init script.
                 self.run('ovn-sbctl',
                          '--',
                          '--id=@connection',
                          'create', 'connection',
-                         'target="pssl:{}:{}"'
-                         .format(ovsdb_peer.db_sb_admin_port,
-                                 ovsdb_peer.cluster_local_addr), '--',
+                         'target="pssl:{}"'
+                         .format(ovsdb_peer.db_sb_admin_port), '--',
                          'add', 'SB_Global', '.', 'connections', '@connection')
             self.restart_all()
             break
+
+    def configure_firewall(self, port_addr_map):
+        """Configure firewall.
+
+        Lock down access to ports not protected by OVN RBAC.
+
+        :param port_addr_map: Map of ports to addresses to allow.
+        :type port_addr_map: Dict[Tuple[int, ...], Optional[Iterator]]
+        :param allowed_hosts: Hosts allowed to connect.
+        :type allowed_hosts: Iterator
+        """
+        ufw_comment = 'charm-' + self.name
+
+        # set default allow
+        ch_ufw.enable()
+        ch_ufw.default_policy('allow', 'incoming')
+        ch_ufw.default_policy('allow', 'outgoing')
+        ch_ufw.default_policy('allow', 'routed')
+        # reject connection to protected ports
+        for port in set().union(*port_addr_map.keys()):
+            ch_ufw.modify_access(src=None, dst='any', port=port,
+                                 proto='tcp', action='reject',
+                                 comment=ufw_comment)
+        # allow connections from provided addresses
+        allowed_addrs = {}
+        for ports, addrs in port_addr_map.items():
+            # store List copy of addrs to iterate over it multiple times
+            _addrs = list(addrs or [])
+            for port in ports:
+                for addr in _addrs:
+                    ch_ufw.modify_access(addr, port=port, proto='tcp',
+                                         action='allow', prepend=True,
+                                         comment=ufw_comment)
+                    allowed_addrs[addr] = 1
+        # delete any rules managed by us that do not match provided addresses
+        delete_rules = []
+        for num, rule in ch_ufw.status():
+            if 'comment' in rule and rule['comment'] == ufw_comment:
+                if (rule['action'] == 'allow in' and
+                        rule['from'] not in allowed_addrs):
+                    delete_rules.append(num)
+        for rule in sorted(delete_rules, reverse=True):
+            ch_ufw.modify_access(None, dst=None, action='delete', index=rule)
