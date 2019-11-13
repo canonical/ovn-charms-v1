@@ -24,6 +24,8 @@ from charmhelpers.contrib.network import ufw as ch_ufw
 import charms_openstack.adapters
 import charms_openstack.charm
 
+import charms.ovn as ovn
+
 
 OVS_ETCDIR = '/etc/openvswitch'
 
@@ -134,6 +136,22 @@ class OVNCentralCharm(charms_openstack.charm.OpenStackCharm):
         :rtype List[int]
         """
         return self._default_port_list()
+
+    def custom_assess_status_check(self):
+        """Add clustered DB status to status message."""
+        db_leader = []
+        for db in ('ovnnb_db', 'ovnsb_db',):
+            if ovn.is_cluster_leader(db):
+                db_leader.append(db)
+
+        msg = []
+        if db_leader:
+            msg.append('leader: {}'.format(', '.join(db_leader)))
+        if ovn.is_northd_active():
+            msg.append('northd: active')
+        if msg:
+            return ('active', 'Unit is ready ({})'.format(' '.join(msg)))
+        return None, None
 
     def enable_services(self):
         """Enable services.
