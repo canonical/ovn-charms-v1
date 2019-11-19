@@ -90,13 +90,13 @@ class TestOVNCentralCharm(Helper):
         self.target.ports_to_check()
         self.target._default_port_list.assert_called_once_with()
 
-    def test_custom_assess_status_check(self):
+    def test_custom_assess_status_last_check(self):
         self.patch_object(ovn_central.ovn, 'is_cluster_leader')
         self.patch_object(ovn_central.ovn, 'is_northd_active')
         self.is_cluster_leader.side_effect = [False, False]
         self.is_northd_active.return_value = False
         self.assertEquals(
-            self.target.custom_assess_status_check(),
+            self.target.custom_assess_status_last_check(),
             (None, None))
         self.is_cluster_leader.assert_has_calls([
             mock.call('ovnnb_db'),
@@ -104,24 +104,24 @@ class TestOVNCentralCharm(Helper):
         ])
         self.is_cluster_leader.side_effect = [True, False]
         self.assertEquals(
-            self.target.custom_assess_status_check(),
+            self.target.custom_assess_status_last_check(),
             ('active', 'Unit is ready (leader: ovnnb_db)'))
         self.is_cluster_leader.side_effect = [True, True]
         self.assertEquals(
-            self.target.custom_assess_status_check(),
+            self.target.custom_assess_status_last_check(),
             ('active', 'Unit is ready (leader: ovnnb_db, ovnsb_db)'))
         self.is_cluster_leader.side_effect = [False, False]
         self.is_northd_active.return_value = True
         self.assertEquals(
-            self.target.custom_assess_status_check(),
+            self.target.custom_assess_status_last_check(),
             ('active', 'Unit is ready (northd: active)'))
         self.is_cluster_leader.side_effect = [True, False]
         self.assertEquals(
-            self.target.custom_assess_status_check(),
+            self.target.custom_assess_status_last_check(),
             ('active', 'Unit is ready (leader: ovnnb_db northd: active)'))
         self.is_cluster_leader.side_effect = [True, True]
         self.assertEquals(
-            self.target.custom_assess_status_check(),
+            self.target.custom_assess_status_last_check(),
             ('active',
              'Unit is ready (leader: ovnnb_db, ovnsb_db northd: active)'))
 

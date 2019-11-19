@@ -137,7 +137,7 @@ class OVNCentralCharm(charms_openstack.charm.OpenStackCharm):
         """
         return self._default_port_list()
 
-    def custom_assess_status_check(self):
+    def custom_assess_status_last_check(self):
         """Add clustered DB status to status message."""
         db_leader = []
         for db in ('ovnnb_db', 'ovnsb_db',):
