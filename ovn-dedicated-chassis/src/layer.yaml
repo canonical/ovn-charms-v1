@@ -1,0 +1,8 @@
+includes:
+  - layer:ovn
+  - interface:ovsdb
+options:
+  basic:
+    use_venv: True
+    include_system_packages: False
+repo: https://github.com/openstack/charm-ovn-controller
