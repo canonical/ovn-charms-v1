@@ -4,7 +4,7 @@ relations:
   - mysql:shared-db
 - - ovn-central:certificates
   - vault:certificates
-- - ovn-central:juju-info
+- - magpie:juju-info
   - ovn-chassis:juju-info
 - - ovn-chassis:ovsdb
   - ovn-central:ovsdb
@@ -20,6 +20,9 @@ applications:
   ovn-central:
     charm: cs:~openstack-charmers-next/ovn-central
     num_units: 3
+  magpie:
+    charm: cs:~admcleod/magpie
+    num_units: 2
   ovn-chassis:
     series: eoan
     charm: cs:~openstack-charmers-next/ovn-chassis

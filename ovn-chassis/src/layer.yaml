@@ -1,5 +1,5 @@
 includes:
-  - layer:openstack
+  - layer:ovn
   - interface:ovsdb
   - interface:neutron-plugin
 options:
@@ -10,6 +10,7 @@ repo: https://github.com/openstack/charm-ovn-controller
 config:
   deletes:
     - debug
+    - source
     - ssl_ca
     - ssl_cert
     - ssl_key

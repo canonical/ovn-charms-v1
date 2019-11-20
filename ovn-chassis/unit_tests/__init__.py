@@ -37,3 +37,9 @@ sys.modules['neutronclient'] = neutronclient
 sys.modules['neutronclient.v2_0'] = neutronclient.v2_0
 sys.modules['neutron_lib'] = neutron_lib
 sys.modules['neutron_lib.constants'] = neutron_lib.constants
+import reactive
+reactive.ovn_chassis_charm_handlers = mock.MagicMock()
+reactive.ovn_chassis_charm_handlers.OVN_CHASSIS_ENABLE_HANDLERS_FLAG = \
+    'MOCKED_FLAG'
+sys.modules['reactive.ovn_chassis_charm_handlers'] = \
+    reactive.ovn_chassis_charm_handlers

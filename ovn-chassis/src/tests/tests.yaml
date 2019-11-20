@@ -5,6 +5,8 @@ gate_bundles:
 smoke_bundles:
 - bionic
 target_deploy_status:
+  magpie:
+    workload-status-message: icmp ok
   ovn-central:
     workload-status: blocked
     workload-status-message: "'certificates' missing"

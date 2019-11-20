@@ -4,7 +4,7 @@ relations:
   - mysql:shared-db
 - - ovn-central:certificates
   - vault:certificates
-- - ovn-central:juju-info
+- - magpie:juju-info
   - ovn-chassis:juju-info
 - - ovn-chassis:ovsdb
   - ovn-central:ovsdb
@@ -22,6 +22,9 @@ applications:
     num_units: 3
     options:
       source: cloud:bionic-train
+  magpie:
+    charm: cs:~admcleod/magpie
+    num_units: 2
   ovn-chassis:
     series: bionic
     charm: cs:~openstack-charmers-next/ovn-chassis
