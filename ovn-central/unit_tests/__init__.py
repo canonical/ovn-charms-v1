@@ -25,10 +25,12 @@ import mock
 import charms
 charms.leadership = mock.MagicMock()
 charms.ovn = mock.MagicMock()
+charms.ovn_charm = mock.MagicMock()
 keystoneauth1 = mock.MagicMock()
 neutronclient = mock.MagicMock()
 sys.modules['charms.leadership'] = charms.leadership
 sys.modules['charms.ovn'] = charms.ovn
+sys.modules['charms.ovn_charm'] = charms.ovn_charm
 keystoneauth1 = mock.MagicMock()
 novaclient = mock.MagicMock()
 neutron_lib = mock.MagicMock()

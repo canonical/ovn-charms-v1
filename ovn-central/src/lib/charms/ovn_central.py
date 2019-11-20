@@ -25,25 +25,7 @@ import charms_openstack.adapters
 import charms_openstack.charm
 
 import charms.ovn as ovn
-
-
-OVS_ETCDIR = '/etc/openvswitch'
-
-
-@charms_openstack.adapters.config_property
-def ovn_key(cls):
-    return os.path.join(OVS_ETCDIR, 'key_host')
-
-
-@charms_openstack.adapters.config_property
-def ovn_cert(cls):
-    return os.path.join(OVS_ETCDIR, 'cert_host')
-
-
-@charms_openstack.adapters.config_property
-def ovn_ca_cert(cls):
-    return os.path.join(OVS_ETCDIR,
-                        '{}.crt'.format(cls.charm_instance.name))
+import charms.ovn_charm as ovn_charm
 
 
 class OVNCentralCharm(charms_openstack.charm.OpenStackCharm):
@@ -74,7 +56,8 @@ class OVNCentralCharm(charms_openstack.charm.OpenStackCharm):
     # the charm
     restart_map = {
         '/etc/default/ovn-central': services,
-        os.path.join(OVS_ETCDIR, 'ovn-northd-db-params.conf'): ['ovn-northd'],
+        os.path.join(
+            ovn_charm.OVS_ETCDIR, 'ovn-northd-db-params.conf'): ['ovn-northd'],
         '/lib/systemd/system/ovn-central.service': [],
         '/lib/systemd/system/ovn-northd.service': [],
         '/lib/systemd/system/ovn-nb-ovsdb.service': [],
@@ -82,6 +65,12 @@ class OVNCentralCharm(charms_openstack.charm.OpenStackCharm):
     }
     python_version = 3
     source_config_key = 'source'
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        charms_openstack.adapters.config_property(ovn_charm.ovn_key)
+        charms_openstack.adapters.config_property(ovn_charm.ovn_cert)
+        charms_openstack.adapters.config_property(ovn_charm.ovn_ca_cert)
 
     def install(self):
         """Extend the default install method.
@@ -211,14 +200,15 @@ class OVNCentralCharm(charms_openstack.charm.OpenStackCharm):
             certificates_interface=certificates_interface)
 
         for tls_object in tls_objects:
-            with open(ovn_ca_cert(self.adapters_instance), 'w') as crt:
+            with open(
+                    ovn_charm.ovn_ca_cert(self.adapters_instance), 'w') as crt:
                 chain = tls_object.get('chain')
                 if chain:
                     crt.write(tls_object['ca'] + os.linesep + chain)
                 else:
                     crt.write(tls_object['ca'])
 
-            self.configure_cert(OVS_ETCDIR,
+            self.configure_cert(ovn_charm.OVS_ETCDIR,
                                 tls_object['cert'],
                                 tls_object['key'],
                                 cn='host')

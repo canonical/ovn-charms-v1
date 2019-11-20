@@ -18,24 +18,7 @@ import os
 
 import charms_openstack.test_utils as test_utils
 
-import charm.openstack.ovn_central as ovn_central
-
-
-class TestOVNConfigProperties(test_utils.PatchHelper):
-
-    def test_ovn_key(self):
-        self.assertEquals(ovn_central.ovn_key(None),
-                          os.path.join(ovn_central.OVS_ETCDIR, 'key_host'))
-
-    def test_ovn_cert(self):
-        self.assertEquals(ovn_central.ovn_cert(None),
-                          os.path.join(ovn_central.OVS_ETCDIR, 'cert_host'))
-
-    def test_ovn_ca_cert(self):
-        cls = mock.MagicMock()
-        cls.charm_instance.name = mock.PropertyMock().return_value = 'name'
-        self.assertEquals(ovn_central.ovn_ca_cert(cls),
-                          os.path.join(ovn_central.OVS_ETCDIR, 'name.crt'))
+import charms.ovn_central as ovn_central
 
 
 class Helper(test_utils.PatchHelper):
@@ -43,6 +26,8 @@ class Helper(test_utils.PatchHelper):
     def setUp(self):
         super().setUp()
         self.patch_release(ovn_central.OVNCentralCharm.release)
+        self.patch_object(
+            ovn_central.charms_openstack.adapters, 'config_property')
         self.target = ovn_central.OVNCentralCharm()
 
     def patch_target(self, attr, return_value=None):
@@ -181,6 +166,10 @@ class TestOVNCentralCharm(Helper):
         ovsdb.db_nb_port = mock.PropertyMock().return_value = 6641
         ovsdb.db_sb_port = mock.PropertyMock().return_value = 6642
         self.endpoint_from_name.side_effect = [ovsdb_peer, ovsdb]
+        self.patch_object(ovn_central, 'ovn_charm')
+        self.ovn_charm.OVS_ETCDIR = '/etc/openvswitch'
+        self.ovn_charm.ovn_ca_cert.return_value = os.path.join(
+            self.ovn_charm.OVS_ETCDIR, 'ovn-central.crt')
         with mock.patch('builtins.open', create=True) as mocked_open:
             mocked_file = mock.MagicMock(spec=io.FileIO)
             mocked_open.return_value = mocked_file
@@ -193,7 +182,7 @@ class TestOVNCentralCharm(Helper):
             mocked_file.__enter__().write.assert_called_once_with(
                 'fakeca\nfakechain')
             self.target.configure_cert.assert_called_once_with(
-                ovn_central.OVS_ETCDIR,
+                self.ovn_charm.OVS_ETCDIR,
                 'fakecert',
                 'fakekey',
                 cn='host')

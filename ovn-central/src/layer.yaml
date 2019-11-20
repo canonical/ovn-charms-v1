@@ -8,3 +8,14 @@ options:
     use_venv: True
     include_system_packages: False
 repo: https://github.com/openstack/charm-ovn
+config:
+  deletes:
+    - debug
+    - interface-bridge-mappings
+    - ovn-bridge-mappings
+    - ssl_ca
+    - ssl_cert
+    - ssl_key
+    - use-internal-endpoints
+    - use-syslog
+    - verbose
