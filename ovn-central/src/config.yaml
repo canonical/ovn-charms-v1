@@ -21,3 +21,12 @@ options:
       Note that updating this setting to a source that is known to
       provide a later version of Ceph will trigger a software
       upgrade.
+  ovsdb-server-inactivity-probe:
+    default: 60
+    type: int
+    description: |
+      Maximum number of seconds of idle time on connection to client before
+      sending an inactivity probe message.
+
+      The Open vSwitch ovsdb-server default of 5 seconds may not be sufficient
+      depending on type and load of the CMS you want to connect to OVN.
