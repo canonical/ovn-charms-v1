@@ -1,7 +1,9 @@
 includes:
   - layer:ovn
   - interface:ovsdb
+  - interface:ovsdb-subordinate
   - interface:neutron-plugin
+  - interface:juju-info
 options:
   basic:
     use_venv: True
