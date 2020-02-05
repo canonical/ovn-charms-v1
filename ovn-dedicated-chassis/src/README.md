@@ -35,7 +35,7 @@ for communication with the OVN Southbound DB as well as overlay traffic.
 
 Chassis port configuration is composed of a mapping between physical network
 names to bridge names (`ovn-bridge-mappings`) and individual interface to
-bridge names (`interface-bridge-mappings`).  There must be a match in both
+bridge names (`bridge-interface-mappings`).  There must be a match in both
 configuration options before the charm will configure bridge and interfaces on
 a unit.
 
