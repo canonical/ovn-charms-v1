@@ -14,12 +14,12 @@ provides:
   nova-compute:
     interface: neutron-plugin
     scope: container
+  ovsdb-subordinate:
+    interface: ovsdb-subordinate
+    scope: container
 requires:
   juju-info:
     interface: juju-info
-    scope: container
-  ovsdb-subordinate:
-    interface: ovsdb-subordinate
     scope: container
   ovsdb:
     interface: ovsdb
