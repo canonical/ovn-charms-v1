@@ -29,7 +29,12 @@ This charm supports the use of Juju Network Spaces.
 By binding the `ovsdb` endpoint you can influence which interface will be used
 for communication with the OVN Southbound DB as well as overlay traffic.
 
-    juju deploy ovn-dedicated-chassis --bind "ovsdb=data-space"
+    juju deploy ovn-dedicated-chassis --bind "ovsdb=internal-space"
+
+By binding the `data` extra-binding you can influence which interface will be
+used for overlay traffic.
+
+    juju deploy ovn-dedicated-chassis --bind "data=overlay-space"
 
 ## Port Configuration
 

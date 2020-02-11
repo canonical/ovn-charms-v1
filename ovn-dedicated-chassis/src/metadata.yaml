@@ -10,6 +10,8 @@ series:
   - bionic
   - eoan
 subordinate: false
+extra-bindings:
+  data:
 requires:
   ovsdb:
     interface: ovsdb
