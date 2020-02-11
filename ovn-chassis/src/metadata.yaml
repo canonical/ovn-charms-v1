@@ -10,6 +10,8 @@ series:
   - bionic
   - eoan
 subordinate: true
+extra-bindings:
+  data:
 provides:
   nova-compute:
     interface: neutron-plugin
