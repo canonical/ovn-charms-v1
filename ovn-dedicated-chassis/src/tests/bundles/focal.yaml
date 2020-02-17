@@ -1,4 +1,4 @@
-series: eoan
+series: focal
 relations:
 - - vault-mysql-router:db-router
   - mysql-innodb-cluster:db-router

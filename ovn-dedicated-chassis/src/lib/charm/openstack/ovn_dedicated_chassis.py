@@ -14,8 +14,17 @@
 import charms.ovn_charm
 
 
-class OVNDedicatedChassisCharm(charms.ovn_charm.BaseOVNChassisCharm):
+class TrainOVNChassisCharm(charms.ovn_charm.BaseTrainOVNChassisCharm):
     # OpenvSwitch and OVN is distributed as part of the Ubuntu Cloud Archive
     # Pockets get their name from OpenStack releases
+    source_config_key = 'source'
     release = 'train'
+    name = 'ovn-dedicated-chassis'
+
+
+class UssuriOVNChassisCharm(charms.ovn_charm.BaseUssuriOVNChassisCharm):
+    # OpenvSwitch and OVN is distributed as part of the Ubuntu Cloud Archive
+    # Pockets get their name from OpenStack releases
+    source_config_key = 'source'
+    release = 'ussuri'
     name = 'ovn-dedicated-chassis'

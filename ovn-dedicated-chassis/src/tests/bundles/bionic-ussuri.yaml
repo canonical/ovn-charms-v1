@@ -1,9 +1,7 @@
-series: eoan
+series: bionic
 relations:
-- - vault-mysql-router:db-router
-  - mysql-innodb-cluster:db-router
 - - vault:shared-db
-  - vault-mysql-router:shared-db
+  - mysql:shared-db
 - - ovn-central:certificates
   - vault:certificates
 - - ovn-dedicated-chassis:ovsdb
@@ -11,11 +9,9 @@ relations:
 - - ovn-dedicated-chassis:certificates
   - vault:certificates
 applications:
-  mysql-innodb-cluster:
-    charm: cs:~openstack-charmers-next/mysql-innodb-cluster
-    num_units: 3
-  vault-mysql-router:
-    charm: cs:~openstack-charmers-next/mysql-router
+  mysql:
+    charm: cs:~openstack-charmers-next/percona-cluster
+    num_units: 1
   vault:
     charm: cs:~openstack-charmers-next/vault
     num_units: 1
@@ -23,9 +19,9 @@ applications:
     charm: cs:~openstack-charmers-next/ovn-central
     num_units: 3
     options:
-      source: distro
+      source: cloud:bionic-ussuri/proposed
   ovn-dedicated-chassis:
     charm: cs:~openstack-charmers-next/ovn-dedicated-chassis
     num_units: 2
     options:
-      source: distro
+      source: cloud:bionic-ussuri/proposed
