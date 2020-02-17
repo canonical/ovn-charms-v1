@@ -1,10 +1,9 @@
-series: eoan
+series: focal
 relations:
 - - vault-mysql-router:db-router
   - mysql-innodb-cluster:db-router
 - - vault:shared-db
   - vault-mysql-router:shared-db
-- - ovn-central:certificates
   - vault:certificates
 - - magpie:juju-info
   - ovn-chassis:juju-info
@@ -28,5 +27,5 @@ applications:
     charm: cs:~openstack-charmers-next/magpie
     num_units: 2
   ovn-chassis:
-    series: eoan
+    series: focal
     charm: cs:~openstack-charmers-next/ovn-chassis
