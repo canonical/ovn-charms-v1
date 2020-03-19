@@ -11,7 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+import charms_openstack.charm as charm
+
 import charms.ovn_charm
+
+
+charm.use_defaults('charm.default-select-release')
 
 
 class TrainOVNChassisCharm(charms.ovn_charm.BaseTrainOVNChassisCharm):
