@@ -2,6 +2,7 @@ charm_name: ovn-dedicated-chassis
 gate_bundles:
 - bionic-train
 - eoan
+- focal
 - bionic-ussuri
 smoke_bundles:
 - bionic-ussuri
@@ -21,3 +22,6 @@ configure:
 - zaza.openstack.charm_tests.vault.setup.auto_initialize_no_validation
 tests:
 - zaza.charm_tests.noop.tests.NoopTest
+tests_options:
+  force_deploy:
+    - focal
