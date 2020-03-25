@@ -1,12 +1,12 @@
 charm_name: ovn-chassis
 gate_bundles:
+- bionic-ussuri
 - bionic-train
 - eoan
-- bionic-ussuri
-smoke_bundles:
-- bionic-ussuri
-dev_bundles:
 - focal
+smoke_bundles:
+- bionic-train
+dev_bundles:
 target_deploy_status:
   magpie:
     workload-status-message: icmp ok
@@ -23,3 +23,6 @@ configure:
 - zaza.openstack.charm_tests.vault.setup.auto_initialize_no_validation
 tests:
 - zaza.charm_tests.noop.tests.NoopTest
+tests_options:
+  force_deploy:
+    - focal
