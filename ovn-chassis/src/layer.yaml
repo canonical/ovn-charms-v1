@@ -8,7 +8,7 @@ options:
   basic:
     use_venv: True
     include_system_packages: False
-repo: https://github.com/openstack/charm-ovn-controller
+repo: https://opendev.org/x/charm-ovn-chassis
 config:
   deletes:
     - debug
