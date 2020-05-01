@@ -17,13 +17,37 @@ import os
 import subprocess
 
 import charmhelpers.core as ch_core
+import charmhelpers.contrib.network.ovs.ovn as ch_ovn
+import charmhelpers.contrib.network.ovs.ovsdb as ch_ovsdb
 from charmhelpers.contrib.network import ufw as ch_ufw
 
 import charms_openstack.adapters
 import charms_openstack.charm
 
-import charms.ovn as ovn
-import charms.ovn_charm as ovn_charm
+# Release selection need to happen here for correct determination during
+# bus discovery and action exection
+charms_openstack.charm.use_defaults('charm.default-select-release')
+
+
+# NOTE(fnordahl): We should split the ``OVNConfigurationAdapter`` in
+# ``layer-ovn`` into common and chassis specific parts so we can re-use the
+# common parts here.
+class OVNCentralConfigurationAdapter(
+        charms_openstack.adapters.ConfigurationAdapter):
+    """Provide a configuration adapter for OVN Central."""
+
+    @property
+    def ovn_key(self):
+        return os.path.join(self.charm_instance.ovn_sysconfdir(), 'key_host')
+
+    @property
+    def ovn_cert(self):
+        return os.path.join(self.charm_instance.ovn_sysconfdir(), 'cert_host')
+
+    @property
+    def ovn_ca_cert(self):
+        return os.path.join(self.charm_instance.ovn_sysconfdir(),
+                            '{}.crt'.format(self.charm_instance.name))
 
 
 class BaseOVNCentralCharm(charms_openstack.charm.OpenStackCharm):
@@ -38,24 +62,19 @@ class BaseOVNCentralCharm(charms_openstack.charm.OpenStackCharm):
     packages = ['ovn-central']
     services = ['ovn-central']
     release_pkg = 'ovn-central'
+    configuration_class = OVNCentralConfigurationAdapter
     required_relations = ['certificates']
-    restart_map = {
-        '/etc/default/ovn-central': services,
-        os.path.join(
-            ovn.ovn_sysconfdir(), 'ovn-northd-db-params.conf'): ['ovn-northd'],
-    }
     python_version = 3
     source_config_key = 'source'
 
     def __init__(self, **kwargs):
+        """Override class init to populate restart map with instance method."""
+        self.restart_map = {
+            '/etc/default/ovn-central': self.services,
+            os.path.join(self.ovn_sysconfdir(),
+                         'ovn-northd-db-params.conf'): ['ovn-northd'],
+        }
         super().__init__(**kwargs)
-        try:
-            charms_openstack.adapters.config_property(ovn_charm.ovn_key)
-            charms_openstack.adapters.config_property(ovn_charm.ovn_cert)
-            charms_openstack.adapters.config_property(ovn_charm.ovn_ca_cert)
-        except RuntimeError:
-            # The custom config properties are allready registered
-            pass
 
     def install(self, service_masks=None):
         """Extend the default install method.
@@ -80,6 +99,14 @@ class BaseOVNCentralCharm(charms_openstack.charm.OpenStackCharm):
                 os.symlink('/dev/null', abs_path_svc)
         self.configure_source()
         super().install()
+
+    @staticmethod
+    def ovn_sysconfdir():
+        return '/etc/ovn'
+
+    @staticmethod
+    def ovn_rundir():
+        return '/var/run/ovn'
 
     def _default_port_list(self, *_):
         """Return list of ports the payload listens to.
@@ -109,13 +136,14 @@ class BaseOVNCentralCharm(charms_openstack.charm.OpenStackCharm):
         """Add clustered DB status to status message."""
         db_leader = []
         for db in ('ovnnb_db', 'ovnsb_db',):
-            if ovn.is_cluster_leader(db):
+            status = self.cluster_status(db)
+            if status and status.is_cluster_leader:
                 db_leader.append(db)
 
         msg = []
         if db_leader:
             msg.append('leader: {}'.format(', '.join(db_leader)))
-        if ovn.is_northd_active():
+        if self.is_northd_active():
             msg.append('northd: active')
         if msg:
             return ('active', 'Unit is ready ({})'.format(' '.join(msg)))
@@ -132,6 +160,36 @@ class BaseOVNCentralCharm(charms_openstack.charm.OpenStackCharm):
         for service in self.services:
             ch_core.host.service_resume(service)
         return True
+
+    def cluster_status(self, db):
+        """OVN version agnostic cluster_status helper.
+
+        :param db: Database to operate on
+        :type db: str
+        :returns: Object describing the cluster status or None
+        :rtype: Optional[ch_ovn.OVNClusterStatus]
+        """
+        try:
+            # The charm will attempt to retrieve cluster status before OVN
+            # is clustered and while units are paused, so we need to handle
+            # errors from this call gracefully.
+            return ch_ovn.cluster_status(db, rundir=self.ovn_rundir(),
+                                         use_ovs_appctl=(
+                                             self.release == 'train'))
+        except (ValueError, subprocess.CalledProcessError) as e:
+            ch_core.hookenv.log('Unable to get cluster status, ovsdb-server '
+                                'not ready yet?: {}'.format(e),
+                                level=ch_core.hookenv.DEBUG)
+            return
+
+    def is_northd_active(self):
+        """OVN version agnostic is_northd_active helper.
+
+        :returns: True if northd is active, False if not, None if not supported
+        :rtype: Optional[bool]
+        """
+        if self.release != 'train':
+            return ch_ovn.is_northd_active()
 
     def run(self, *args):
         """Fork off a proc and run commands, collect output and return code.
@@ -201,14 +259,14 @@ class BaseOVNCentralCharm(charms_openstack.charm.OpenStackCharm):
 
         for tls_object in tls_objects:
             with open(
-                    ovn_charm.ovn_ca_cert(self.adapters_instance), 'w') as crt:
+                    self.options.ovn_ca_cert, 'w') as crt:
                 chain = tls_object.get('chain')
                 if chain:
                     crt.write(tls_object['ca'] + os.linesep + chain)
                 else:
                     crt.write(tls_object['ca'])
 
-            self.configure_cert(ovn.ovn_sysconfdir(),
+            self.configure_cert(self.ovn_sysconfdir(),
                                 tls_object['cert'],
                                 tls_object['key'],
                                 cn='host')
@@ -231,10 +289,12 @@ class BaseOVNCentralCharm(charms_openstack.charm.OpenStackCharm):
         #
         # However, at bootstrap time the OVSDB cluster leaders will
         # coincide with the charm leader.
-        if ovn.is_cluster_leader('ovn{}_db'.format(db)):
+        status = self.cluster_status('ovn{}_db'.format(db))
+        if status and status.is_cluster_leader:
             ch_core.hookenv.log('is_cluster_leader {}'.format(db),
                                 level=ch_core.hookenv.DEBUG)
-            connections = ovn.SimpleOVSDB('ovn-{}ctl'.format(db), 'connection')
+            connections = ch_ovsdb.SimpleOVSDB(
+                'ovn-{}ctl'.format(db)).connection
             for port, settings in port_map.items():
                 ch_core.hookenv.log('port {} {}'.format(port, settings),
                                     level=ch_core.hookenv.DEBUG)
@@ -403,6 +463,14 @@ class TrainOVNCentralCharm(BaseOVNCentralCharm):
             'ovn-central.service',
         ]
         super().install(service_masks=service_masks)
+
+    @staticmethod
+    def ovn_sysconfdir():
+        return '/etc/openvswitch'
+
+    @staticmethod
+    def ovn_rundir():
+        return '/var/run/openvswitch'
 
 
 class UssuriOVNCentralCharm(BaseOVNCentralCharm):
