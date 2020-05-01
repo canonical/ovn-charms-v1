@@ -9,18 +9,18 @@ network.
 Open vSwitch bridges for integration, external Layer2 and Layer3 connectivity
 is managed by the charm.
 
-> **Note**: The OVN charms are considered preview charms.
-
 # Usage
 
 OVN makes use of Public Key Infrastructure (PKI) to authenticate and authorize
 control plane communication.  The charm requires a Certificate Authority to be
 present in the model as represented by the `certificates` relation.
 
-There is a [OVN overlay bundle](https://github.com/openstack-charmers/openstack-bundles/blob/master/development/overlays/openstack-base-ovn.yaml)
-for use in conjunction with the [OpenStack Base bundle](https://github.com/openstack-charmers/openstack-bundles/blob/master/development/openstack-base-bionic-train/bundle.yaml)
-which give an example of how you can automate certificate lifecycle management
-with the help from [Vault](https://jaas.ai/vault/).
+The [OpenStack Base bundle][openstack-base-bundle] gives an example of how you
+can deploy OpenStack and OVN with [Vault][charm-vault] to automate certificate
+lifecycle management.
+
+Please refer to the [OVN Appendix][ovn-cdg] in the
+[OpenStack Charms Deployment Guide][cdg] for details.
 
 ## Network Spaces support
 
@@ -69,6 +69,16 @@ on all chassis with potential to host the consuming payload.
 
 # Bugs
 
-Please report bugs on [Launchpad](https://bugs.launchpad.net/charm-ovn-chassis/+filebug).
+Please report bugs on [Launchpad][lp-ovn-chassis].
 
-For general questions please refer to the OpenStack [Charm Guide](https://docs.openstack.org/charm-guide/latest/).
+For general questions please refer to the OpenStack [Charm Guide][cg].
+
+<!-- LINKS -->
+
+[cdg]: https://docs.openstack.org/project-deploy-guide/charm-deployment-guide/latest/
+[ovn-cdg]: https://docs.openstack.org/project-deploy-guide/charm-deployment-guide/latest/app-ovn.html
+[cg]: https://docs.openstack.org/charm-guide/latest/
+[charm-nova-compute]: https://jaas.ai/nova-compute
+[charm-vault]: https://jaas.ai/vault/
+[lp-ovn-chassis]: https://bugs.launchpad.net/charm-ovn-chassis/+filebug
+[openstack-base-bundle]: https://github.com/openstack-charmers/openstack-bundles/blob/master/development/openstack-base-bionic-ussuri-ovn/bundle.yaml

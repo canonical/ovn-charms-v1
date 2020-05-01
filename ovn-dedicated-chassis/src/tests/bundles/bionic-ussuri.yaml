@@ -24,4 +24,4 @@ applications:
     charm: cs:~openstack-charmers-next/ovn-dedicated-chassis
     num_units: 2
     options:
-      source: cloud:bionic-ussuri/proposed
+      source: cloud:bionic-ussuri
