@@ -19,3 +19,10 @@ config:
     - networking-tools-source
     - sriov-device-mappings
     - sriov-numvfs
+    - debug
+    - ssl_ca
+    - ssl_cert
+    - ssl_key
+    - use-internal-endpoints
+    - use-syslog
+    - verbose
