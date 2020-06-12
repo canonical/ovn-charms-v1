@@ -16,6 +16,8 @@ lifecycle management.
 Please refer to the [OVN Appendix][ovn-cdg] in the
 [OpenStack Charms Deployment Guide][cdg] for details.
 
+> **Note**: The charm requires a minimum of 3 units to operate
+
 ## Network Spaces support
 
 This charm supports the use of Juju Network Spaces.
@@ -25,7 +27,9 @@ influence which interface will be used for communication with consumers of
 the Southbound DB, Cloud Management Systems (CMS) and cluster internal
 communication.
 
-    juju deploy ovn-central --bind "''=oam-space ovsdb=data-space"
+    juju deploy -n 3 --series focal \
+        --bind "''=oam-space ovsdb=data-space" \
+        ovn-central
 
 ## OVN RBAC and securing the OVN services
 
