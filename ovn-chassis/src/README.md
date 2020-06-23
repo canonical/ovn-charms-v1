@@ -10,6 +10,10 @@ is managed by the charm.
 On successful deployment the unit will be enlisted as a Chassis in the OVN
 network.
 
+The ovn-chassis charm is a subordinate charm. Alternatively, the principle
+[ovn-dedicated-chassis][ovn-dedicated-chassis-charm] charm can be used,
+resulting in a dedicated software gateway.
+
 > **Note**: The OVN charms are supported starting with OpenStack Train.
 
 # Usage
@@ -89,7 +93,7 @@ on all chassis with potential to host the consuming payload.
 
 Please report bugs on [Launchpad][lp-ovn-chassis].
 
-For general questions please refer to the OpenStack [Charm Guide][cg].
+For general questions please refer to the [OpenStack Charm Guide][cg].
 
 <!-- LINKS -->
 
@@ -99,6 +103,7 @@ For general questions please refer to the OpenStack [Charm Guide][cg].
 [nova-compute-charm]: https://jaas.ai/nova-compute
 [vault-charm]: https://jaas.ai/vault/
 [ovn-central-charm]: https://jaas.ai/ovn-central
+[ovn-dedicated-chassis-charm]: https://jaas.ai/ovn-dedicated-chassis
 [lp-ovn-chassis]: https://bugs.launchpad.net/charm-ovn-chassis/+filebug
 [openstack-base-bundle]: https://github.com/openstack-charmers/openstack-bundles/blob/master/development/openstack-base-bionic-ussuri-ovn/bundle.yaml
 [nova-metadata]: https://docs.openstack.org/nova/latest/user/metadata.html
