@@ -7,7 +7,7 @@ gate_bundles:
 smoke_bundles:
 - bionic-ussuri
 dev_bundles:
-- focal
+- groovy
 target_deploy_status:
   ovn-central:
     workload-status: waiting
@@ -24,4 +24,4 @@ tests:
 - zaza.openstack.charm_tests.ovn.tests.ChassisCharmOperationTest
 tests_options:
   force_deploy:
-    - focal
+    - groovy
