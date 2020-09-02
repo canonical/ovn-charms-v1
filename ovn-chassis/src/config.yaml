@@ -1,1 +1,16 @@
-options: {}
+options:
+  openstack-metadata-workers:
+    type: int
+    default: 2
+    description: |
+      When charm is related to OpenStack through the `nova-compute` relation
+      endpoint, the Neutron OVN Metadata service will be activated on the host.
+      .
+      Use this configuration option to control the number of workers the
+      Neutron OVN Metadata service should run.
+      .
+      Each of the workers will establish a connection to the OVN Southbound
+      database. Events the worker respond to is for example the first time
+      a hypervisor hosts an instance in a subnet, so the volume should be
+      relatively low. If you set this number too high you may put an
+      unnecessary toll on the OVN Southbound database server.
