@@ -2,7 +2,6 @@ charm_name: ovn-chassis
 gate_bundles:
 - bionic-ussuri
 - bionic-train
-- eoan
 - focal
 smoke_bundles:
 - bionic-train
