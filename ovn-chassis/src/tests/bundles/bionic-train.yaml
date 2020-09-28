@@ -10,6 +10,10 @@ relations:
   - ovn-central:ovsdb
 - - ovn-chassis:certificates
   - vault:certificates
+- - ovn-chassis:nrpe-external-master
+  - nrpe:nrpe-external-master
+- - magpie:juju-info
+  - nrpe:general-info
 applications:
   mysql:
     charm: cs:~openstack-charmers-next/percona-cluster
@@ -29,4 +33,6 @@ applications:
       source: cloud:bionic-train
   ovn-chassis:
     series: bionic
-    charm: cs:~openstack-charmers-next/ovn-chassis
+    charm: ../../../ovn-chassis
+  nrpe:
+    charm: cs:nrpe
