@@ -8,6 +8,8 @@ relations:
   - ovn-central:ovsdb
 - - ovn-dedicated-chassis:certificates
   - vault:certificates
+- - ovn-dedicated-chassis:nrpe-external-master
+  - nrpe:nrpe-external-master
 applications:
   mysql:
     charm: cs:~openstack-charmers-next/percona-cluster
@@ -21,7 +23,9 @@ applications:
     options:
       source: cloud:bionic-ussuri/proposed
   ovn-dedicated-chassis:
-    charm: cs:~openstack-charmers-next/ovn-dedicated-chassis
+    charm: ../../../ovn-dedicated-chassis
     num_units: 2
     options:
       source: cloud:bionic-ussuri
+  nrpe:
+    charm: cs:nrpe

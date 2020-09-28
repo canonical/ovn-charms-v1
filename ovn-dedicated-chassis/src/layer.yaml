@@ -1,6 +1,7 @@
 includes:
   - layer:ovn
   - interface:ovsdb
+  - interface:nrpe-external-master
 options:
   basic:
     use_venv: True

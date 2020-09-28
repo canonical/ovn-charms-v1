@@ -18,6 +18,9 @@ target_deploy_status:
   vault:
     workload-status: blocked
     workload-status-message: Vault needs to be initialized
+  nrpe:
+    workload-status: blocked
+    workload-status-message: "Nagios server not configured or related"
 configure:
 - zaza.openstack.charm_tests.vault.setup.auto_initialize_no_validation
 tests:

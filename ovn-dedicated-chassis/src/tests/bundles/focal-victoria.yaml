@@ -50,6 +50,8 @@ applications:
       - '5'
       - '6'
 
+  nrpe:
+    charm: cs:nrpe
 
   ovn-dedicated-chassis:
     charm: cs:~openstack-charmers-next/ovn-dedicated-chassis
@@ -72,3 +74,5 @@ relations:
     - 'ovn-central:ovsdb'
   - - 'ovn-dedicated-chassis:certificates'
     - 'vault:certificates'
+  - - 'ovn-dedicated-chassis:nrpe-external-master'
+    - 'nrpe:nrpe-external-master'
