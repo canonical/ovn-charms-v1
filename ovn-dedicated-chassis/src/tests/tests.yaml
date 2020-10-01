@@ -1,13 +1,13 @@
 charm_name: ovn-dedicated-chassis
 gate_bundles:
 - bionic-train
-- eoan
-- focal
 - bionic-ussuri
+- focal-ussuri
+- focal-victoria
 smoke_bundles:
-- bionic-ussuri
+- focal-ussuri
 dev_bundles:
-- groovy
+- groovy-victoria
 target_deploy_status:
   ovn-central:
     workload-status: waiting
@@ -24,4 +24,4 @@ tests:
 - zaza.openstack.charm_tests.ovn.tests.ChassisCharmOperationTest
 tests_options:
   force_deploy:
-    - groovy
+    - groovy-victoria
