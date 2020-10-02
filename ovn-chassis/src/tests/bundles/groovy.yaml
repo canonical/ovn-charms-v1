@@ -40,6 +40,9 @@ applications:
     to:
       - '3'
 
+  nrpe:
+    charm: cs:nrpe
+
   ovn-central:
     charm: cs:~openstack-charmers-next/ovn-central
     num_units: 3
@@ -79,3 +82,7 @@ relations:
   - - 'ovn-chassis:certificates'
     - 'vault:certificates'
 
+  - - 'ovn-chassis:nrpe-external-master'
+    - 'nrpe:nrpe-external-master'
+  - - 'magpie:juju-info'
+    - 'nrpe:general-info'
