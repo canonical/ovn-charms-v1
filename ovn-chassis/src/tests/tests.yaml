@@ -3,10 +3,9 @@ gate_bundles:
 - bionic-ussuri
 - bionic-train
 - focal
+- groovy
 smoke_bundles:
 - bionic-train
-dev_bundles:
-- groovy
 target_deploy_status:
   magpie:
     workload-status-message: icmp ok

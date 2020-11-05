@@ -105,5 +105,5 @@ For general questions please refer to the [OpenStack Charm Guide][cg].
 [ovn-central-charm]: https://jaas.ai/ovn-central
 [ovn-dedicated-chassis-charm]: https://jaas.ai/ovn-dedicated-chassis
 [lp-ovn-chassis]: https://bugs.launchpad.net/charm-ovn-chassis/+filebug
-[openstack-base-bundle]: https://github.com/openstack-charmers/openstack-bundles/blob/master/development/openstack-base-bionic-ussuri-ovn/bundle.yaml
+[openstack-base-bundle]: https://github.com/openstack-charmers/openstack-bundles/blob/master/development/openstack-base-focal-ussuri-ovn/bundle.yaml
 [nova-metadata]: https://docs.openstack.org/nova/latest/user/metadata.html
