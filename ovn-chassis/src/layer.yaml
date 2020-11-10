@@ -11,7 +11,6 @@ options:
 repo: https://opendev.org/x/charm-ovn-chassis
 config:
   deletes:
-    - debug
     - source
     - ssl_ca
     - ssl_cert
