@@ -85,10 +85,10 @@ def announce_leader_ready():
 def initialize_ovsdbs():
     ovsdb_peer = reactive.endpoint_from_flag('ovsdb-peer.connected')
     with charm.provide_charm_instance() as ovn_charm:
-        # ovsdb_peer at connected state will not provide remote addresses
-        # for the cluster.  this will render the ``/etc/default/ovn-central``
-        # file without configuration for the cluster remote addresses which
-        # in turn leads ``ovn-ctl`` on the path to initializing a new cluster
+        # On the leader the ``/etc/default/ovn-central`` file is rendered
+        # without configuration for the cluste remote address. This leads
+        # ``ovn-ctl`` on the path to initializing a new cluster if the
+        # database file does not already exist.
         ovn_charm.render_with_interfaces([ovsdb_peer])
         if ovn_charm.enable_services():
             # belated enablement of default certificates handler due to the
