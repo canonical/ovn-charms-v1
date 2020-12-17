@@ -24,6 +24,8 @@ import charmhelpers.contrib.network.ovs.ovn as ch_ovn
 import charmhelpers.contrib.network.ovs.ovsdb as ch_ovsdb
 from charmhelpers.contrib.network import ufw as ch_ufw
 
+import charms.reactive as reactive
+
 import charms_openstack.adapters
 import charms_openstack.charm
 
@@ -55,6 +57,10 @@ class OVNCentralConfigurationAdapter(
     def ovn_ca_cert(self):
         return os.path.join(self.charm_instance.ovn_sysconfdir(),
                             '{}.crt'.format(self.charm_instance.name))
+
+    @property
+    def is_charm_leader(self):
+        return reactive.is_flag_set('leadership.is_leader')
 
 
 class BaseOVNCentralCharm(charms_openstack.charm.OpenStackCharm):
