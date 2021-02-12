@@ -12,9 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-
-import charms_openstack.adapters
 import charms_openstack.charm as charm
 
 import charms.ovn_charm
@@ -23,11 +20,8 @@ import charms.ovn_charm
 charm.use_defaults('charm.default-select-release')
 
 
-# NOTE(fnordahl): We should split the ``OVNConfigurationAdapter`` in
-# ``layer-ovn`` into common and chassis specific parts so we can re-use the
-# common parts here.
 class OVNDedicatedChassisConfigurationAdapter(
-        charms_openstack.adapters.ConfigurationAdapter):
+        charms.ovn_charm.OVNConfigurationAdapter):
     """Provide a configuration adapter for OVN."""
 
     # The charm class initializer will look for these but they are not and will
@@ -35,23 +29,6 @@ class OVNDedicatedChassisConfigurationAdapter(
     enable_dpdk = False
     enable_sriov = False
     enable_hardware_offload = False
-
-    @property
-    def ovn_key(self):
-        return os.path.join(self.charm_instance.ovn_sysconfdir(), 'key_host')
-
-    @property
-    def ovn_cert(self):
-        return os.path.join(self.charm_instance.ovn_sysconfdir(), 'cert_host')
-
-    @property
-    def ovn_ca_cert(self):
-        return os.path.join(self.charm_instance.ovn_sysconfdir(),
-                            '{}.crt'.format(self.charm_instance.name))
-
-    @property
-    def chassis_name(self):
-        return self.charm_instance.get_ovs_hostname()
 
 
 class TrainOVNChassisCharm(charms.ovn_charm.BaseTrainOVNChassisCharm):
