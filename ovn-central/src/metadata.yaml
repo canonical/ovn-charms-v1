@@ -27,6 +27,7 @@ series:
 - bionic
 - focal
 - groovy
+- hirsute
 subordinate: false
 provides:
   ovsdb:
