@@ -10,6 +10,7 @@ series:
 - bionic
 - focal
 - groovy
+- hirsute
 subordinate: true
 extra-bindings:
   data:
