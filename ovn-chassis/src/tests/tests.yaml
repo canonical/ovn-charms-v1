@@ -1,11 +1,17 @@
 charm_name: ovn-chassis
+
 gate_bundles:
 - bionic-ussuri
 - bionic-train
 - focal
 - groovy
+
 smoke_bundles:
 - focal
+
+dev_bundles:
+- hirsute
+
 target_deploy_status:
   magpie:
     workload-status-message: icmp ok
@@ -21,13 +27,16 @@ target_deploy_status:
   nrpe:
     workload-status: blocked
     workload-status-message: "Nagios server not configured or related"
+
 # Note that full end to end tests are performed with OVN in the
 # neutron-api-plugin-ovn and octavia charm gates
 configure:
 - zaza.openstack.charm_tests.vault.setup.auto_initialize_no_validation
+
 tests:
 - zaza.openstack.charm_tests.ovn.tests.OVNChassisDeferredRestartTest
 - zaza.openstack.charm_tests.ovn.tests.ChassisCharmOperationTest
+
 tests_options:
   force_deploy:
-    - groovy
+    - hirsute

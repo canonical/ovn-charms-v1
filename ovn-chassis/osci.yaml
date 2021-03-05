@@ -7,6 +7,7 @@
       - bionic-train
       - focal
       - groovy
+      - hirsute
     vars:
       needs_charm_build: true
       charm_build_name: ovn-chassis
