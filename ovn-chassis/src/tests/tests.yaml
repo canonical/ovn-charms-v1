@@ -5,7 +5,7 @@ gate_bundles:
 - focal
 - groovy
 smoke_bundles:
-- bionic-train
+- focal
 target_deploy_status:
   magpie:
     workload-status-message: icmp ok
