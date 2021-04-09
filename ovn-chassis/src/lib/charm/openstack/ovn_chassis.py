@@ -20,7 +20,8 @@ import charms.ovn_charm
 charm.use_defaults('charm.default-select-release')
 
 
-class TrainOVNChassisCharm(charms.ovn_charm.BaseTrainOVNChassisCharm):
+class TrainOVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
+                           charms.ovn_charm.BaseTrainOVNChassisCharm):
     # OpenvSwitch and OVN is distributed as part of the Ubuntu Cloud Archive
     # Pockets get their name from OpenStack releases
     release = 'train'
@@ -31,7 +32,8 @@ class TrainOVNChassisCharm(charms.ovn_charm.BaseTrainOVNChassisCharm):
     source_config_key = ''
 
 
-class UssuriOVNChassisCharm(charms.ovn_charm.BaseUssuriOVNChassisCharm):
+class UssuriOVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
+                            charms.ovn_charm.BaseUssuriOVNChassisCharm):
     # OpenvSwitch and OVN is distributed as part of the Ubuntu Cloud Archive
     # Pockets get their name from OpenStack releases
     release = 'ussuri'
