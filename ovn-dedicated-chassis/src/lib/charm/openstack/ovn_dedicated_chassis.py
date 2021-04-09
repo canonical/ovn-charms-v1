@@ -31,7 +31,8 @@ class OVNDedicatedChassisConfigurationAdapter(
     enable_hardware_offload = False
 
 
-class TrainOVNChassisCharm(charms.ovn_charm.BaseTrainOVNChassisCharm):
+class TrainOVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
+                           charms.ovn_charm.BaseTrainOVNChassisCharm):
     # OpenvSwitch and OVN is distributed as part of the Ubuntu Cloud Archive
     # Pockets get their name from OpenStack releases
     source_config_key = 'source'
@@ -40,12 +41,13 @@ class TrainOVNChassisCharm(charms.ovn_charm.BaseTrainOVNChassisCharm):
     configuration_class = OVNDedicatedChassisConfigurationAdapter
 
     # NOTE(fnordahl): Add this to ``layer-ovn``
-    def install(self):
+    def install(self, check_deferred_events=True):
         self.configure_source()
-        super().install()
+        super().install(check_deferred_events=check_deferred_events)
 
 
-class UssuriOVNChassisCharm(charms.ovn_charm.BaseUssuriOVNChassisCharm):
+class UssuriOVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
+                            charms.ovn_charm.BaseUssuriOVNChassisCharm):
     # OpenvSwitch and OVN is distributed as part of the Ubuntu Cloud Archive
     # Pockets get their name from OpenStack releases
     source_config_key = 'source'
@@ -54,6 +56,6 @@ class UssuriOVNChassisCharm(charms.ovn_charm.BaseUssuriOVNChassisCharm):
     configuration_class = OVNDedicatedChassisConfigurationAdapter
 
     # NOTE(fnordahl): Add this to ``layer-ovn``
-    def install(self):
+    def install(self, check_deferred_events=True):
         self.configure_source()
-        super().install()
+        super().install(check_deferred_events=check_deferred_events)

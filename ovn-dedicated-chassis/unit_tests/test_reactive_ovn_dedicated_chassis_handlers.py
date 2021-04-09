@@ -26,6 +26,7 @@ class TestRegisteredHooks(test_utils.TestRegisteredHooks):
         hook_set = {
             'when_not': {
                 'enable_ovn_chassis_handlers': ('MOCKED_FLAG',),
+                'configure_deferred_restarts': ('is-update-status-hook',),
             },
         }
         # test that the hooks were registered via the
