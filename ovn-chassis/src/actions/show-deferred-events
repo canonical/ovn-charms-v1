@@ -1,4 +1,5 @@
-# Copyright 2019 Canonical Ltd
+#!/usr/bin/env python3
+# Copyright 2021 Canonical Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,19 +12,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import charms.reactive as reactive
-import charms_openstack.charm as charm
 
-from . import ovn_chassis_charm_handlers
+import sys
 
 
-@reactive.when_not(ovn_chassis_charm_handlers.OVN_CHASSIS_ENABLE_HANDLERS_FLAG)
-def enable_ovn_chassis_handlers():
-    reactive.set_flag(
-        ovn_chassis_charm_handlers.OVN_CHASSIS_ENABLE_HANDLERS_FLAG)
+sys.path.append('actions')
 
 
-@reactive.when_not('is-update-status-hook')
-def configure_deferred_restarts():
-    with charm.provide_charm_instance() as instance:
-        instance.configure_deferred_restarts()
+import os_deferred_event_actions
+
+
+if __name__ == "__main__":
+    sys.exit(os_deferred_event_actions.main(sys.argv))

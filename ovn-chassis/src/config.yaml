@@ -14,3 +14,10 @@ options:
       a hypervisor hosts an instance in a subnet, so the volume should be
       relatively low. If you set this number too high you may put an
       unnecessary toll on the OVN Southbound database server.
+  enable-auto-restarts:
+    type: boolean
+    default: True
+    description: |
+      Allow the charm and packages to restart services automatically when
+      required.
+
