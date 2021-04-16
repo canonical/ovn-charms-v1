@@ -15,3 +15,9 @@ def enable_ovn_chassis_handlers():
 def configure_deferred_restarts():
     with charm.provide_charm_instance() as instance:
         instance.configure_deferred_restarts()
+
+
+@reactive.when('config.changed.source')
+def source_changed_install():
+    with charm.provide_charm_instance() as instance:
+        instance.run_upgrade()
