@@ -2,5 +2,4 @@
 # when dependencies of the charm change,
 # but nothing in the charm needs to.
 # simply change the uuid to something new
-7fd1710c-0441-4a5c-a27d-5155c4ded3e6
-8f87329a-9deb-11eb-98df-53c458f2fb98
+dfcfb9d6-a36b-11eb-a580-078342cd813b
