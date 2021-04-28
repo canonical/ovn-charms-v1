@@ -30,7 +30,7 @@
       "url": "https://github.com/openstack-charmers/charm-layer-ovn.git",
       "vcs": null,
       "branch": "refs/heads/master",
-      "commit": "0898177a1f278cb83f911eac70e4a0af7a0dc120"
+      "commit": "c5662ebb458f0c2223adccdb010a6f10c7746c2d"
     },
     {
       "type": "layer",
