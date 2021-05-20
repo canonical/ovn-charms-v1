@@ -3,6 +3,7 @@
       - charm-unit-jobs
     check:
       jobs:
+      - charm-build
       - bionic-ussuri
       - bionic-train
       - focal
