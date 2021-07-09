@@ -57,6 +57,21 @@ to talk to port 6641.
 
 Anyone will be allowed to connect to port 6642.
 
+## Deferred service events
+
+Operational or maintenance procedures applied to a cloud often lead to the
+restarting of various OpenStack services and/or the calling of certain charm
+hooks. Although normal, such events can be undesirable due to the service
+interruptions they can cause.
+
+The deferred service events feature provides the operator the choice of
+preventing these service restarts and hook calls from occurring, which can then
+be resolved at a more opportune time.
+
+See the [Deferred service events][cdg-deferred-service-events] page in the
+[OpenStack Charms Deployment Guide][cdg] for an in-depth treatment of this
+feature.
+
 # Bugs
 
 Please report bugs on [Launchpad][lp-ovn-central].
@@ -76,3 +91,4 @@ For general questions please refer to the [OpenStack Charm Guide][cg].
 [vault-charm]: https://jaas.ai/vault
 [ovn-chassis-charm]: https://jaas.ai/ovn-chassis
 [ovn-dedicated-chassis-charm]: https://jaas.ai/ovn-dedicated-chassis
+[cdg-deferred-service-events]: https://docs.openstack.org/project-deploy-guide/charm-deployment-guide/latest/deferred-events.html
