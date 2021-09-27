@@ -1,0 +1,78 @@
+variables:
+  openstack-origin: &openstack-origin cloud:focal-xena
+
+series: focal
+
+comment:
+- 'machines section to decide order of deployment. database sooner = faster'
+machines:
+  '0':
+    constraints: mem=3072M
+  '1':
+    constraints: mem=3072M
+  '2':
+    constraints: mem=3072M
+  '3':
+  '4':
+  '5':
+  '6':
+  '7':
+  '8':
+
+applications:
+
+  vault-mysql-router:
+    charm: cs:~openstack-charmers-next/mysql-router
+
+  mysql-innodb-cluster:
+    charm: cs:~openstack-charmers-next/mysql-innodb-cluster
+    num_units: 3
+    options:
+      source: *openstack-origin
+    to:
+      - '0'
+      - '1'
+      - '2'
+
+  vault:
+    charm: cs:~openstack-charmers-next/vault
+    num_units: 1
+    to:
+      - '3'
+
+  ovn-central:
+    charm: cs:~openstack-charmers-next/ovn-central
+    num_units: 3
+    options:
+      source: *openstack-origin
+    to:
+      - '4'
+      - '5'
+      - '6'
+
+  nrpe:
+    charm: cs:nrpe
+
+  ovn-dedicated-chassis:
+    charm: cs:~openstack-charmers-next/ovn-dedicated-chassis
+    num_units: 2
+    options:
+      source: *openstack-origin
+    to:
+      - '7'
+      - '8'
+
+relations:
+
+  - - 'vault-mysql-router:db-router'
+    - 'mysql-innodb-cluster:db-router'
+  - - 'vault:shared-db'
+    - 'vault-mysql-router:shared-db'
+  - - 'ovn-central:certificates'
+    - 'vault:certificates'
+  - - 'ovn-dedicated-chassis:ovsdb'
+    - 'ovn-central:ovsdb'
+  - - 'ovn-dedicated-chassis:certificates'
+    - 'vault:certificates'
+  - - 'ovn-dedicated-chassis:nrpe-external-master'
+    - 'nrpe:nrpe-external-master'

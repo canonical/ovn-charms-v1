@@ -12,6 +12,10 @@ gate_bundles:
 smoke_bundles:
 - focal-ussuri
 
+dev_bundles:
+- focal-xena
+- impish-xena
+
 target_deploy_status:
   ovn-central:
     workload-status: waiting
@@ -36,4 +40,5 @@ tests:
 tests_options:
   force_deploy:
     - groovy-victoria  # workaround for lp:1933643
-    - hirsute-wallaby
+    - hirsute-wallaby  # because of nrpe charm not supporting hirsute
+    - impish-xena
