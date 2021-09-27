@@ -3,12 +3,12 @@
       - charm-unit-jobs
     check:
       jobs:
-      - charm-build
-      - bionic-ussuri
       - bionic-train
+      - bionic-ussuri
       - focal
-      - groovy
       - hirsute
+      - impish:
+          voting: false
     vars:
       needs_charm_build: true
       charm_build_name: ovn-chassis

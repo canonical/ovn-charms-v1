@@ -1,16 +1,16 @@
 charm_name: ovn-chassis
 
 gate_bundles:
-- bionic-ussuri
 - bionic-train
+- bionic-ussuri
 - focal
-- groovy
 
 smoke_bundles:
 - focal
 
 dev_bundles:
 - hirsute
+- impish
 
 target_deploy_status:
   magpie:
@@ -39,4 +39,5 @@ tests:
 
 tests_options:
   force_deploy:
-    - hirsute
+    - hirsute  # as nrpe is deployed, and nrpe only supports LTS releases
+    - impish   # as nrpe is deployed, and nrpe only supports LTS releases
