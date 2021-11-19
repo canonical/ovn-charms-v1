@@ -59,3 +59,18 @@ class UssuriOVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
     def install(self, check_deferred_events=True):
         self.configure_source()
         super().install(check_deferred_events=check_deferred_events)
+
+
+class WallabyOVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
+                             charms.ovn_charm.BaseWallabyOVNChassisCharm):
+    # OpenvSwitch and OVN is distributed as part of the Ubuntu Cloud Archive
+    # Pockets get their name from OpenStack releases
+    source_config_key = 'source'
+    release = 'wallaby'
+    name = 'ovn-dedicated-chassis'
+    configuration_class = OVNDedicatedChassisConfigurationAdapter
+
+    # NOTE(fnordahl): Add this to ``layer-ovn``
+    def install(self, check_deferred_events=True):
+        self.configure_source()
+        super().install(check_deferred_events=check_deferred_events)
