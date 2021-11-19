@@ -42,3 +42,15 @@ class UssuriOVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
     # Setting an empty source_config_key activates special handling of release
     # selection suitable for subordinate charms
     source_config_key = ''
+
+
+class WallabyOVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
+                             charms.ovn_charm.BaseWallabyOVNChassisCharm):
+    # OpenvSwitch and OVN is distributed as part of the Ubuntu Cloud Archive
+    # Pockets get their name from OpenStack releases
+    release = 'wallaby'
+    name = 'ovn-chassis'
+
+    # Setting an empty source_config_key activates special handling of release
+    # selection suitable for subordinate charms
+    source_config_key = ''
