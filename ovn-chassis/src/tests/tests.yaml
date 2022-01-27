@@ -1,33 +1,31 @@
 charm_name: ovn-chassis
 
 gate_bundles:
-- bionic-ussuri
-- focal
-- hirsute
-- impish
+- focal-xena
+- impish-xena
 
 smoke_bundles:
-- focal
+- focal-xena
 
 dev_bundles:
-- bionic-train
-- jammy
+- focal-yoga
+- jammy-yoga
 
 target_deploy_status:
   magpie:
     workload-status-message: icmp ok
   ovn-central:
     workload-status: waiting
-    workload-status-message: "'ovsdb-peer' incomplete, 'certificates' awaiting server certificate data"
+    workload-status-message-prefix: "'ovsdb-peer' incomplete, 'certificates' awaiting server certificate data"
   ovn-chassis:
     workload-status: waiting
-    workload-status-message: "'certificates' awaiting server certificate data"
+    workload-status-message-prefix: "'certificates' awaiting server certificate data"
   vault:
     workload-status: blocked
-    workload-status-message: Vault needs to be initialized
+    workload-status-message-prefix: Vault needs to be initialized
   nrpe:
     workload-status: blocked
-    workload-status-message: "Nagios server not configured or related"
+    workload-status-message-prefix: "Nagios server not configured or related"
 
 # Note that full end to end tests are performed with OVN in the
 # neutron-api-plugin-ovn and octavia charm gates
@@ -40,6 +38,5 @@ tests:
 
 tests_options:
   force_deploy:
-    - hirsute  # as nrpe is deployed, and nrpe only supports LTS releases
-    - impish   # as nrpe is deployed, and nrpe only supports LTS releases
-    - jammy
+    - impish-xena   # as nrpe is deployed, and nrpe only supports LTS releases
+    - jammy-yoga
