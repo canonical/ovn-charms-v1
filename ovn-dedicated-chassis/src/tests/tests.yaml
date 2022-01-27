@@ -1,35 +1,29 @@
 charm_name: ovn-dedicated-chassis
 
 gate_bundles:
-- bionic-ussuri
-- focal-ussuri
-- focal-victoria
-- focal-wallaby
 - focal-xena
-- hirsute-wallaby
 - impish-xena
 
 smoke_bundles:
-- focal-ussuri
+- focal-xena
 
 dev_bundles:
-- bionic-train
 - focal-yoga
 - jammy-yoga
 
 target_deploy_status:
   ovn-central:
     workload-status: waiting
-    workload-status-message: "'ovsdb-peer' incomplete, 'certificates' awaiting server certificate data"
+    workload-status-message-prefix: "'ovsdb-peer' incomplete, 'certificates' awaiting server certificate data"
   ovn-dedicated-chassis:
     workload-status: waiting
-    workload-status-message: "'certificates' awaiting server certificate data"
+    workload-status-message-prefix: "'certificates' awaiting server certificate data"
   vault:
     workload-status: blocked
-    workload-status-message: Vault needs to be initialized
+    workload-status-message-prefix: Vault needs to be initialized
   nrpe:
     workload-status: blocked
-    workload-status-message: "Nagios server not configured or related"
+    workload-status-message-prefix: "Nagios server not configured or related"
 
 configure:
 - zaza.openstack.charm_tests.vault.setup.auto_initialize_no_validation
@@ -40,6 +34,4 @@ tests:
 
 tests_options:
   force_deploy:
-    - hirsute-wallaby  # workaround for lp:1933643
-    - impish-xena      # because of nrpe charm not supporting hirsute
     - jammy-yoga
