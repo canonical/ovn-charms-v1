@@ -57,8 +57,10 @@ applications:
     channel: latest/edge
 
   magpie:
-    charm: ch:openstack-charmers-magpie
+    charm: ch:magpie
     num_units: 2
+    options:
+      source: *openstack-origin
     to:
       - '7'
       - '8'
