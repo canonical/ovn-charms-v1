@@ -20,35 +20,14 @@ import charms.ovn_charm
 charm.use_defaults('charm.default-select-release')
 
 
-class TrainOVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
-                           charms.ovn_charm.BaseTrainOVNChassisCharm):
+class OVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
+                      charms.ovn_charm.BaseOVNChassisCharm):
     # OpenvSwitch and OVN is distributed as part of the Ubuntu Cloud Archive
-    # Pockets get their name from OpenStack releases
-    release = 'train'
-    name = 'ovn-chassis'
-
-    # Setting an empty source_config_key activates special handling of release
-    # selection suitable for subordinate charms
-    source_config_key = ''
-
-
-class UssuriOVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
-                            charms.ovn_charm.BaseUssuriOVNChassisCharm):
-    # OpenvSwitch and OVN is distributed as part of the Ubuntu Cloud Archive
-    # Pockets get their name from OpenStack releases
+    # Pockets get their name from OpenStack releases.
+    #
+    # This defines the earliest version this charm can support, actually
+    # installed version is selected by the principle charm.
     release = 'ussuri'
-    name = 'ovn-chassis'
-
-    # Setting an empty source_config_key activates special handling of release
-    # selection suitable for subordinate charms
-    source_config_key = ''
-
-
-class WallabyOVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
-                             charms.ovn_charm.BaseWallabyOVNChassisCharm):
-    # OpenvSwitch and OVN is distributed as part of the Ubuntu Cloud Archive
-    # Pockets get their name from OpenStack releases
-    release = 'wallaby'
     name = 'ovn-chassis'
 
     # Setting an empty source_config_key activates special handling of release
