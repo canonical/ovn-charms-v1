@@ -31,42 +31,15 @@ class OVNDedicatedChassisConfigurationAdapter(
     enable_hardware_offload = False
 
 
-class TrainOVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
-                           charms.ovn_charm.BaseTrainOVNChassisCharm):
+class OVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
+                      charms.ovn_charm.BaseOVNChassisCharm):
     # OpenvSwitch and OVN is distributed as part of the Ubuntu Cloud Archive
     # Pockets get their name from OpenStack releases
-    source_config_key = 'source'
-    release = 'train'
-    name = 'ovn-dedicated-chassis'
-    configuration_class = OVNDedicatedChassisConfigurationAdapter
-
-    # NOTE(fnordahl): Add this to ``layer-ovn``
-    def install(self, check_deferred_events=True):
-        self.configure_source()
-        super().install(check_deferred_events=check_deferred_events)
-
-
-class UssuriOVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
-                            charms.ovn_charm.BaseUssuriOVNChassisCharm):
-    # OpenvSwitch and OVN is distributed as part of the Ubuntu Cloud Archive
-    # Pockets get their name from OpenStack releases
+    #
+    # This defines the earliest version this charm can support, actually
+    # installed version is selected by configuration.
     source_config_key = 'source'
     release = 'ussuri'
-    name = 'ovn-dedicated-chassis'
-    configuration_class = OVNDedicatedChassisConfigurationAdapter
-
-    # NOTE(fnordahl): Add this to ``layer-ovn``
-    def install(self, check_deferred_events=True):
-        self.configure_source()
-        super().install(check_deferred_events=check_deferred_events)
-
-
-class WallabyOVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
-                             charms.ovn_charm.BaseWallabyOVNChassisCharm):
-    # OpenvSwitch and OVN is distributed as part of the Ubuntu Cloud Archive
-    # Pockets get their name from OpenStack releases
-    source_config_key = 'source'
-    release = 'wallaby'
     name = 'ovn-dedicated-chassis'
     configuration_class = OVNDedicatedChassisConfigurationAdapter
 
