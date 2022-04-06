@@ -45,9 +45,6 @@ applications:
       - '3'
     channel: latest/edge
   
-  nrpe:
-    charm: cs:nrpe
-
   ovn-central:
     charm: ch:ovn-central
     num_units: 3
@@ -81,5 +78,3 @@ relations:
     - 'ovn-central:ovsdb'
   - - 'ovn-dedicated-chassis:certificates'
     - 'vault:certificates'
-  - - 'ovn-dedicated-chassis:nrpe-external-master'
-    - 'nrpe:nrpe-external-master'

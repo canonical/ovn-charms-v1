@@ -2,13 +2,12 @@ charm_name: ovn-dedicated-chassis
 
 gate_bundles:
 - focal-xena
-- impish-xena
+- focal-yoga
 
 smoke_bundles:
-- focal-xena
+- focal-yoga
 
 dev_bundles:
-- focal-yoga
 - jammy-yoga
 
 target_deploy_status:

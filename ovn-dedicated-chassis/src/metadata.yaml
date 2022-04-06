@@ -8,7 +8,7 @@ tags:
 - networking
 series:
 - focal
-- impish
+- jammy
 subordinate: false
 extra-bindings:
   data:
