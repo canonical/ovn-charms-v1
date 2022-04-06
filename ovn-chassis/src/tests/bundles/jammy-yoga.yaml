@@ -45,10 +45,6 @@ applications:
       - '3'
     channel: latest/edge
 
-  nrpe:
-    charm: cs:nrpe
-    series: focal
-
   ovn-central:
     charm: ch:ovn-central
     num_units: 3
@@ -89,8 +85,3 @@ relations:
 
   - - 'ovn-chassis:certificates'
     - 'vault:certificates'
-
-  - - 'ovn-chassis:nrpe-external-master'
-    - 'nrpe:nrpe-external-master'
-  - - 'magpie:juju-info'
-    - 'nrpe:general-info'

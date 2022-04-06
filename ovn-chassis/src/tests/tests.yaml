@@ -2,13 +2,12 @@ charm_name: ovn-chassis
 
 gate_bundles:
 - focal-xena
-- impish-xena
+- focal-yoga
 
 smoke_bundles:
-- focal-xena
+- focal-yoga
 
 dev_bundles:
-- focal-yoga
 - jammy-yoga
 
 target_deploy_status:
@@ -38,5 +37,4 @@ tests:
 
 tests_options:
   force_deploy:
-    - impish-xena   # as nrpe is deployed, and nrpe only supports LTS releases
     - jammy-yoga
