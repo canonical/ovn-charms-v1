@@ -30,10 +30,18 @@ target_deploy_status:
 # neutron-api-plugin-ovn and octavia charm gates
 configure:
 - zaza.openstack.charm_tests.vault.setup.auto_initialize_no_validation
+- zaza.openstack.charm_tests.neutron.setup.undercloud_and_charm_setup
+
+configure_options:
+  # magpie is obviously not a hypervisor, but for the purpose of this charm
+  # gate it is the principal charm for ovn-chassis and as such is the target
+  # unit for preparing hugepages and VFIO configuration.
+  hypervisor_application: 'magpie'
 
 tests:
 - zaza.openstack.charm_tests.ovn.tests.OVNChassisDeferredRestartTest
 - zaza.openstack.charm_tests.ovn.tests.ChassisCharmOperationTest
+- zaza.openstack.charm_tests.ovn.tests.DPDKTest
 
 tests_options:
   force_deploy:
