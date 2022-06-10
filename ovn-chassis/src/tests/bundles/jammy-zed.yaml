@@ -1,9 +1,9 @@
 variables:
-  openstack-origin: &openstack-origin cloud:focal-yoga
+  openstack-origin: &openstack-origin cloud:jammy-zed
 
 local_overlay_enabled: False
 
-series: focal
+series: jammy
 
 applications:
 
@@ -36,7 +36,7 @@ applications:
     channel: latest/edge
 
   ovn-chassis:
-    charm: ../../../ovn-chassis_ubuntu-20.04-amd64.charm
+    charm: ../../../ovn-chassis_ubuntu-22.04-amd64.charm
 
 relations:
 
