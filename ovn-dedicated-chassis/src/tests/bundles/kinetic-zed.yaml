@@ -1,9 +1,9 @@
 variables:
-  openstack-origin: &openstack-origin cloud:focal-xena
+  openstack-origin: &openstack-origin distro
 
 local_overlay_enabled: False
 
-series: focal
+series: kinetic
 
 applications:
 
@@ -22,10 +22,11 @@ applications:
     channel: latest/edge
 
   ovn-dedicated-chassis:
-    charm: ../../../ovn-dedicated-chassis_ubuntu-20.04-amd64.charm
+    charm: ../../../ovn-dedicated-chassis_ubuntu-22.04-amd64.charm
     num_units: 2
     options:
       source: *openstack-origin
+
 
 relations:
 
