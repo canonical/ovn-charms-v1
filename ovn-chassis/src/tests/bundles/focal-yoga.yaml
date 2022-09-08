@@ -47,10 +47,6 @@ applications:
       - '3'
     channel: latest/edge
 
-  nrpe:
-    charm: cs:nrpe
-    series: focal
-
   ovn-central:
     charm: ch:ovn-central
     num_units: 3
@@ -80,7 +76,7 @@ applications:
     channel: latest/edge
 
   ovn-chassis:
-    charm: ../../../ovn-chassis.charm
+    charm: ../../../ovn-chassis_ubuntu-20.04-amd64.charm
 
 relations:
 
@@ -100,8 +96,3 @@ relations:
 
   - - 'ovn-chassis:certificates'
     - 'vault:certificates'
-
-  - - 'ovn-chassis:nrpe-external-master'
-    - 'nrpe:nrpe-external-master'
-  - - 'magpie:juju-info'
-    - 'nrpe:general-info'
