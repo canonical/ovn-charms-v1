@@ -56,11 +56,8 @@ applications:
       - '6'
     channel: latest/edge
 
-  nrpe:
-    charm: cs:nrpe
-
   ovn-dedicated-chassis:
-    charm: ../../../ovn-dedicated-chassis.charm
+    charm: ../../../ovn-dedicated-chassis_ubuntu-20.04-amd64.charm
     num_units: 2
     options:
       source: *openstack-origin
@@ -80,5 +77,3 @@ relations:
     - 'ovn-central:ovsdb'
   - - 'ovn-dedicated-chassis:certificates'
     - 'vault:certificates'
-  - - 'ovn-dedicated-chassis:nrpe-external-master'
-    - 'nrpe:nrpe-external-master'
