@@ -39,6 +39,7 @@ configure_options:
 tests:
 - zaza.openstack.charm_tests.ovn.tests.OVNChassisDeferredRestartTest
 - zaza.openstack.charm_tests.ovn.tests.ChassisCharmOperationTest
+- zaza.openstack.charm_tests.ovn.tests.DPDKTest
 
 tests_options:
   force_deploy:
