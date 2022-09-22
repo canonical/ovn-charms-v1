@@ -26,11 +26,19 @@
     },
     {
       "type": "layer",
+      "item": "layer:leadership",
+      "url": "https://git.launchpad.net/layer-leadership",
+      "vcs": null,
+      "branch": "refs/heads/master",
+      "commit": "cc5bd3f49b2fa5e6c3ab2336763c313ec8bf083f"
+    },
+    {
+      "type": "layer",
       "item": "layer:ovn",
       "url": "https://github.com/openstack-charmers/charm-layer-ovn.git",
       "vcs": null,
       "branch": "refs/heads/master",
-      "commit": "d1d1e01d825e97fd2ae0cede6fa2d141ecc17ab6"
+      "commit": "b3dca6a4a8ba3fbab12fd4569855c047aee08c16"
     },
     {
       "type": "layer",
