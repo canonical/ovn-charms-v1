@@ -12,14 +12,14 @@ applications:
     num_units: 1
     # The vault raft support is currently only available for jammy
     series: jammy
-    channel: latest/edge
+    channel: 1.8/edge
 
   ovn-central:
     charm: ch:ovn-central
     num_units: 3
     options:
       source: *openstack-origin
-    channel: latest/edge
+    channel: 22.09/edge
 
   ovn-dedicated-chassis:
     charm: ../../../ovn-dedicated-chassis_ubuntu-22.04-amd64_ubuntu-22.10-amd64.charm
