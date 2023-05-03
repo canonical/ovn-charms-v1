@@ -1,7 +1,9 @@
 charm_name: ovn-dedicated-chassis
 
 gate_bundles:
+- jammy-antelope
 - jammy-zed
+- lunar-antelope
 
 smoke_bundles:
 - jammy-zed
