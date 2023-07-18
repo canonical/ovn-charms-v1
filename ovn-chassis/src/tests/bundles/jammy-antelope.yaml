@@ -36,7 +36,7 @@ applications:
     channel: latest/edge
 
   ovn-chassis:
-    charm: ../../../ovn-chassis_ubuntu-22.04-amd64_ubuntu-22.10-amd64_ubuntu-23.04-amd64.charm
+    charm: ../../../ovn-chassis_ubuntu-22.04-amd64.charm
 
 relations:
 

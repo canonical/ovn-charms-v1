@@ -1,9 +1,9 @@
 variables:
-  openstack-origin: &openstack-origin distro
+  openstack-origin: &openstack-origin cloud:jammy-bobcat
 
 local_overlay_enabled: False
 
-series: lunar
+series: jammy
 
 applications:
 
@@ -36,7 +36,7 @@ applications:
     channel: latest/edge
 
   ovn-chassis:
-    charm: ../../../ovn-chassis_ubuntu-23.04-amd64.charm
+    charm: ../../../ovn-chassis_ubuntu-22.04-amd64.charm
 
 relations:
 
