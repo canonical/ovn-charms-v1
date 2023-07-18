@@ -1,9 +1,9 @@
 variables:
-  openstack-origin: &openstack-origin cloud:jammy-antelope
+  openstack-origin: &openstack-origin distro
 
 local_overlay_enabled: False
 
-series: jammy
+series: mantic
 
 applications:
 
@@ -13,7 +13,7 @@ applications:
     # The vault raft support is currently only available for jammy
     series: jammy
     channel: latest/edge
-
+  
   ovn-central:
     charm: ch:ovn-central
     num_units: 3
@@ -22,7 +22,7 @@ applications:
     channel: latest/edge
 
   ovn-dedicated-chassis:
-    charm: ../../../ovn-dedicated-chassis_ubuntu-22.04-amd64.charm
+    charm: ../../../ovn-dedicated-chassis_ubuntu-23.10-amd64.charm
     num_units: 2
     options:
       source: *openstack-origin
