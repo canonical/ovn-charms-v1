@@ -220,6 +220,12 @@
     },
     {
       "type": "python_module",
+      "package": "attrs",
+      "vcs": null,
+      "version": "22.2.0"
+    },
+    {
+      "type": "python_module",
       "package": "charmhelpers",
       "url": "git+https://github.com/juju/charm-helpers.git",
       "branch": "refs/heads/stable/yoga",
