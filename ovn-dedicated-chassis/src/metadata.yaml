@@ -4,6 +4,7 @@ maintainer: OpenStack Charmers <openstack-charmers@lists.ubuntu.com>
 description: |
   A charm that deploys the OVN local controller and Open vSwitch
   Database and Switch.
+docs: https://discourse.charmhub.io/t/ovn-dedicated-chassis-docs-index/11215
 tags:
 - networking
 series:
