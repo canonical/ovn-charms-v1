@@ -74,6 +74,12 @@
     },
     {
       "type": "python_module",
+      "package": "attrs",
+      "vcs": null,
+      "version": "22.1.0"
+    },
+    {
+      "type": "python_module",
       "package": "setuptools",
       "vcs": null,
       "version": "62.1.0"
