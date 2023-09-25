@@ -27,3 +27,15 @@ def enable_ovn_chassis_handlers():
 def configure_deferred_restarts():
     with charm.provide_charm_instance() as instance:
         instance.configure_deferred_restarts()
+
+
+@reactive.when_none('charm.paused', 'is-update-status-hook')
+@reactive.when('config.rendered')
+@reactive.when_any('config.changed.nagios_context',
+                   'config.changed.nagios_servicegroups',
+                   'endpoint.nrpe-external-master.changed',
+                   'nrpe-external-master.available')
+def configure_nrpe():
+    """Handle config-changed for NRPE options."""
+    with charm.provide_charm_instance() as charm_instance:
+        charm_instance.render_nrpe()
