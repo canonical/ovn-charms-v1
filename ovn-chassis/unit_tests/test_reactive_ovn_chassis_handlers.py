@@ -24,9 +24,21 @@ class TestRegisteredHooks(test_utils.TestRegisteredHooks):
 
     def test_hooks(self):
         hook_set = {
+            'when_none': {
+                'configure_nrpe': ('charm.paused', 'is-update-status-hook',),
+            },
             'when_not': {
                 'enable_ovn_chassis_handlers': ('MOCKED_FLAG',),
                 'configure_deferred_restarts': ('is-update-status-hook',),
+            },
+            'when': {
+                'configure_nrpe': ('config.rendered',),
+            },
+            'when_any': {
+                'configure_nrpe': ('config.changed.nagios_context',
+                                   'config.changed.nagios_servicegroups',
+                                   'endpoint.nrpe-external-master.changed',
+                                   'nrpe-external-master.available',),
             },
         }
         # test that the hooks were registered via the
