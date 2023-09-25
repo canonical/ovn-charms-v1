@@ -1,5 +1,6 @@
 includes:
   - layer:ovn
+  - interface:nrpe-external-master
   - interface:ovsdb
   - interface:ovsdb-subordinate
   - interface:neutron-plugin
