@@ -12,7 +12,7 @@ applications:
     num_units: 1
     # The vault raft support is currently only available for jammy
     series: jammy
-    channel: latest/edge
+    channel: 1.8/edge
   
   ovn-central:
     charm: ch:ovn-central
