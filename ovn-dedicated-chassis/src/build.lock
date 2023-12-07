@@ -45,8 +45,8 @@
       "item": "layer:ovn",
       "url": "https://github.com/openstack-charmers/charm-layer-ovn.git",
       "vcs": null,
-      "branch": "1e312c8010935fc6c9d69d1cb7b9e4635d7a991c",
-      "commit": "1e312c8010935fc6c9d69d1cb7b9e4635d7a991c"
+      "branch": "refs/heads/stable/23.03",
+      "commit": "b08c4e147ccb26cb6ee898b552aec1cee4b4f353"
     },
     {
       "type": "layer",
@@ -186,7 +186,7 @@
       "type": "python_module",
       "package": "PyYAML",
       "vcs": null,
-      "version": "6.0"
+      "version": "6.0.1"
     },
     {
       "type": "python_module",
@@ -230,7 +230,7 @@
       "type": "python_module",
       "package": "Cython",
       "vcs": null,
-      "version": "0.29.34"
+      "version": "0.29.36"
     },
     {
       "type": "python_module",
