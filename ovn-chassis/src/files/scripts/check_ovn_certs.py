@@ -21,11 +21,13 @@ from cryptography.hazmat.backends import default_backend
 from cryptography import x509
 
 NAGIOS_PLUGIN_DATA = '/usr/local/lib/nagios/juju_charm_plugin_data'
+UNKNOWN = 3
 CRITICAL = 2
 WARN = 1
 SUCCESS = 0
 
-CERT_EXPIRY_LIMIT = 60
+CERT_EXPIRY_CRITICAL_LIMIT = 30
+CERT_EXPIRY_WARN_LIMIT = 60
 
 
 class SSLCertificate(object):
@@ -71,14 +73,21 @@ def check_ovn_certs():
                 exit_code = CRITICAL
                 break
 
-            if remaining_days < CERT_EXPIRY_LIMIT:
-                message = ("{}: cert will expire soon (less than {} days).".
-                           format(cert, CERT_EXPIRY_LIMIT))
+            if remaining_days < CERT_EXPIRY_CRITICAL_LIMIT:
+                message = ("{}: cert will expire in {} days".
+                           format(cert, remaining_days))
+                exit_code = CRITICAL
+                break
+
+            if remaining_days < CERT_EXPIRY_WARN_LIMIT:
+                message = ("{}: cert will expire in {} days".
+                           format(cert, remaining_days))
                 exit_code = WARN
                 break
+
         except Exception as exc:
             message = "failed to check cert '{}': {}".format(cert, str(exc))
-            exit_code = WARN
+            exit_code = UNKNOWN
     else:
         message = "all certs healthy"
         exit_code = SUCCESS
