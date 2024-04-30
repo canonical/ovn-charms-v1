@@ -55,7 +55,7 @@ def check_ovn_certs():
         os.makedirs(NAGIOS_PLUGIN_DATA)
 
     exit_code = SUCCESS
-    for cert in ['/etc/ovn/cert_host', '/etc/ovn/ovn-central.crt']:
+    for cert in ['/etc/ovn/cert_host', '/etc/ovn/ovn-chassis.crt']:
         if not os.path.exists(cert):
             message = "cert '{}' does not exist.".format(cert)
             exit_code = CRITICAL
