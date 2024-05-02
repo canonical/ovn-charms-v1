@@ -1,14 +1,13 @@
 charm_name: ovn-chassis
 
 gate_bundles:
-- jammy-antelope
+- jammy-caracal
 
 smoke_bundles:
-- jammy-antelope
+- jammy-caracal
 
 dev_bundles:
 - jammy-bobcat
-- lunar-antelope
 - mantic-bobcat
 
 target_deploy_status:
@@ -43,5 +42,4 @@ tests:
 
 tests_options:
   force_deploy:
-    - lunar-antelope
     - mantic-bobcat
