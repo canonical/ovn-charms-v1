@@ -7,3 +7,4 @@ interfaces
 layers
 *.swp
 *.charm
+.coverage
