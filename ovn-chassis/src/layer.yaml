@@ -9,7 +9,7 @@ options:
   basic:
     use_venv: True
     include_system_packages: False
-repo: https://opendev.org/x/charm-ovn-chassis
+repo: https://github.com/canonical/charm-ovn-chassis.git
 config:
   deletes:
     - source
