@@ -107,7 +107,7 @@ jobs:
     steps:
       - name: Get PR commits
         id: 'get-pr-commits'
-        uses: tim-actions/get-pr-commits@198af03
+        uses: tim-actions/get-pr-commits@198af03565609bb4ed924d1260247b4881f09e7d
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -125,7 +125,7 @@ jobs:
 
           ZAZA_TAG="Func-test-pr: "
           FUNC_PR=$(jq -r '.[].commit.message' <<< "$COMMIT_DATA" | grep -i "^${ZAZA_TAG}" | tail -1)
-          PR_URL=$($(echo $FUNC_PR | sed -e "s/^$ZAZA_TAG//I"))
+          PR_URL=$(echo $FUNC_PR | sed -e "s/^$ZAZA_TAG//I")
 
           echo "zaza_pr=$PR_URL" >> "$GITHUB_OUTPUT"
 
@@ -186,6 +186,7 @@ jobs:
       - name: Generate crash dumps
         if: failure()
         run: |
+          sudo snap install --classic juju-crashdump
           models=$(juju models | grep zaza | awk '{print $1}' | tr -d '*')
           rm -rf ./crashdumps
           mkdir ./crashdumps
