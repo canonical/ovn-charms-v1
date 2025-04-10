@@ -186,6 +186,7 @@ jobs:
       - name: Generate crash dumps
         if: failure()
         run: |
+          sudo snap install --classic juju-crashdump
           models=$(juju models | grep zaza | awk '{print $1}' | tr -d '*')
           rm -rf ./crashdumps
           mkdir ./crashdumps
