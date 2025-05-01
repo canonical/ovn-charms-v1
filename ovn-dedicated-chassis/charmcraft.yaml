@@ -12,13 +12,13 @@ parts:
       - python3-dev
       - libffi-dev
       - libssl-dev
-      - rustc-1.76
-      - cargo-1.76
+      - rustc-1.80
+      - cargo-1.80
       - pkg-config
     override-build: |
-      # Note(mylesjp): Force build to use rustc-1.76
-      ln -s /usr/bin/rustc-1.76 /usr/bin/rustc
-      ln -s /usr/bin/cargo-1.76 /usr/bin/cargo
+      # Note(mylesjp): Force build to use rustc-1.80
+      ln -s /usr/bin/rustc-1.80 /usr/bin/rustc
+      ln -s /usr/bin/cargo-1.80 /usr/bin/cargo
       craftctl default
     build-snaps:
       - charm/latest/edge
