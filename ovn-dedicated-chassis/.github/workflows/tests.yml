@@ -186,7 +186,7 @@ jobs:
           # The kubernetes API is not always immediately available to use, even if
           # microk8s status reports ready state. These retries ensure that we don't
           # fail the test unnecessarily
-          (r=3;while ! juju add-k8s mk8s --controller concierge-lxd ; do ((--r))||exit;sleep 10;done)
+          (r=30;while ! juju add-k8s mk8s --controller concierge-lxd ; do ((--r))||exit;sleep 2;done)
 
       - name: Install custom functional test repository
         if: ${{ needs.parse_tags.outputs.zaza_pr != '' }}

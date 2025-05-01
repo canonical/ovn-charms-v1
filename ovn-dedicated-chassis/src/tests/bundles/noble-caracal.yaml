@@ -24,9 +24,14 @@ applications:
   ovn-dedicated-chassis:
     charm: ../../../ovn-dedicated-chassis_amd64.charm
     num_units: 2
+    constraints: "virt-type=virtual-machine mem=4G"
     options:
       source: *openstack-origin
 
+  grafana-agent:
+    charm: ch:grafana-agent
+    channel: latest/stable
+    base: ubuntu@24.04
 
 relations:
 
@@ -36,3 +41,6 @@ relations:
     - 'ovn-central:ovsdb'
   - - 'ovn-dedicated-chassis:certificates'
     - 'vault:certificates'
+  - - 'grafana-agent:cos-agent'
+    - 'ovn-dedicated-chassis:cos-agent'
+
