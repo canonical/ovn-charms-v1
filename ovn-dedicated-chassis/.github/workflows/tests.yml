@@ -92,8 +92,8 @@ jobs:
       - name: Store charm as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ovn-chassis-charm
-          path: ./ovn-chassis_amd64.charm
+          name: ovn-dedicated-chassis-charm
+          path: ./ovn-dedicated-chassis_amd64.charm
           retention-days: 7
 
   parse_tags:
@@ -147,7 +147,7 @@ jobs:
       - name: Download built charm
         uses: actions/download-artifact@v4
         with:
-          name: ovn-chassis-charm
+          name: ovn-dedicated-chassis-charm
  
       - name: Install dependencies
         run: |
@@ -186,7 +186,7 @@ jobs:
           # The kubernetes API is not always immediately available to use, even if
           # microk8s status reports ready state. These retries ensure that we don't
           # fail the test unnecessarily
-          (r=3;while ! juju add-k8s mk8s --controller concierge-lxd ; do ((--r))||exit;sleep 10;done)
+          (r=30;while ! juju add-k8s mk8s --controller concierge-lxd ; do ((--r))||exit;sleep 2;done)
 
       - name: Install custom functional test repository
         if: ${{ needs.parse_tags.outputs.zaza_pr != '' }}

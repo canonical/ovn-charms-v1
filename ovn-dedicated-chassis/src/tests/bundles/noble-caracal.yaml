@@ -1,9 +1,9 @@
 variables:
-  openstack-origin: &openstack-origin cloud:jammy-bobcat
+  openstack-origin: &openstack-origin caracal
 
 local_overlay_enabled: False
 
-series: jammy
+series: noble
 
 applications:
 
@@ -22,11 +22,16 @@ applications:
     channel: latest/edge
 
   ovn-dedicated-chassis:
-    charm: ../../../ovn-dedicated-chassis_ubuntu-22.04-amd64.charm
+    charm: ../../../ovn-dedicated-chassis_amd64.charm
     num_units: 2
+    constraints: "virt-type=virtual-machine mem=4G"
     options:
       source: *openstack-origin
 
+  grafana-agent:
+    charm: ch:grafana-agent
+    channel: latest/stable
+    base: ubuntu@24.04
 
 relations:
 
@@ -36,3 +41,6 @@ relations:
     - 'ovn-central:ovsdb'
   - - 'ovn-dedicated-chassis:certificates'
     - 'vault:certificates'
+  - - 'grafana-agent:cos-agent'
+    - 'ovn-dedicated-chassis:cos-agent'
+
