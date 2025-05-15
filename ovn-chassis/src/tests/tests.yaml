@@ -1,10 +1,10 @@
 charm_name: ovn-chassis
 
 gate_bundles:
-- jammy-caracal
+- jammy_caracal: jammy-caracal
 
 smoke_bundles:
-- jammy-caracal
+- jammy_caracal: jammy-caracal
 
 dev_bundles:
 - jammy-bobcat
@@ -41,5 +41,8 @@ tests:
 - zaza.openstack.charm_tests.ovn.tests.DPDKTest
 
 tests_options:
+  jammy_caracal:
+    overlay_ppas:
+      - cloud-archive:caracal
   force_deploy:
     - mantic-bobcat
