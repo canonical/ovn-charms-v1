@@ -24,6 +24,7 @@ applications:
   ovn-dedicated-chassis:
     charm: ../../../ovn-dedicated-chassis_ubuntu-22.04-amd64.charm
     num_units: 2
+    constraints: "virt-type=virtual-machine mem=4G"
     options:
       source: *openstack-origin
 
