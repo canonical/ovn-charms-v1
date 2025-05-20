@@ -29,6 +29,10 @@ target_deploy_status:
 # Note that full end to end tests are performed with OVN in the
 # neutron-api-plugin-ovn and octavia charm gates
 configure:
+- jammy_caracal:
+  - zaza.openstack.charm_tests.vault.setup.auto_initialize_no_validation
+  - zaza.openstack.charm_tests.neutron.setup.undercloud_and_charm_setup
+  - zaza.openstack.charm_tests.cos.setup.try_relate_to_cos
 - zaza.openstack.charm_tests.vault.setup.auto_initialize_no_validation
 - zaza.openstack.charm_tests.neutron.setup.undercloud_and_charm_setup
 - zaza.openstack.charm_tests.cos.setup.try_relate_to_cos
@@ -40,6 +44,11 @@ configure_options:
   hypervisor_application: 'magpie'
 
 tests:
+- jammy_caracal:
+  - zaza.openstack.charm_tests.ovn.tests.OVNChassisDeferredRestartTest
+  - zaza.openstack.charm_tests.ovn.tests.ChassisCharmOperationTest
+  - zaza.openstack.charm_tests.ovn.tests.ChassisCosIntegrationTest
+  - zaza.openstack.charm_tests.ovn.tests.DPDKTest
 - zaza.openstack.charm_tests.ovn.tests.OVNChassisDeferredRestartTest
 - zaza.openstack.charm_tests.ovn.tests.ChassisCharmOperationTest
 - zaza.openstack.charm_tests.ovn.tests.ChassisCosIntegrationTest
