@@ -8,7 +8,6 @@ smoke_bundles:
 
 dev_bundles:
 - jammy-bobcat
-- mantic-bobcat
 
 target_deploy_status:
   magpie:
@@ -58,5 +57,3 @@ tests_options:
   jammy_caracal:
     overlay_ppas:
       - cloud-archive:caracal
-  force_deploy:
-    - mantic-bobcat
