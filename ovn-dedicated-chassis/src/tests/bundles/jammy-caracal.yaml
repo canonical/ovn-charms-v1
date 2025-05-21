@@ -21,6 +21,11 @@ applications:
       source: *openstack-origin
     channel: 24.03/edge
 
+  grafana-agent:
+    charm: ch:grafana-agent
+    channel: latest/stable
+    base: ubuntu@22.04
+
   ovn-dedicated-chassis:
     charm: ../../../ovn-dedicated-chassis_ubuntu-22.04-amd64.charm
     num_units: 2
@@ -37,3 +42,5 @@ relations:
     - 'ovn-central:ovsdb'
   - - 'ovn-dedicated-chassis:certificates'
     - 'vault:certificates'
+  - - 'grafana-agent:cos-agent'
+    - 'ovn-dedicated-chassis:cos-agent'

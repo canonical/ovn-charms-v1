@@ -9,7 +9,6 @@ tags:
 - networking
 series:
 - jammy
-- mantic
 subordinate: false
 extra-bindings:
   data:

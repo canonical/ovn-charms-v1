@@ -8,7 +8,6 @@ smoke_bundles:
 
 dev_bundles:
 - jammy-bobcat
-- mantic-bobcat
 
 target_deploy_status:
   ovn-central:
@@ -20,14 +19,15 @@ target_deploy_status:
   vault:
     workload-status: blocked
     workload-status-message-prefix: Vault needs to be initialized
+  grafana-agent:
+    workload-status: blocked
+    workload-status-message-prefix: ""
 
 configure:
 - zaza.openstack.charm_tests.vault.setup.auto_initialize_no_validation
+- zaza.openstack.charm_tests.cos.setup.try_relate_to_cos
 
 tests:
 - zaza.openstack.charm_tests.ovn.tests.OVNDedicatedChassisDeferredRestartTest
 - zaza.openstack.charm_tests.ovn.tests.ChassisCharmOperationTest
-
-tests_options:
-  force_deploy:
-    - mantic-bobcat
+- zaza.openstack.charm_tests.ovn.tests.DedicatedChassisCosIntegrationTest
