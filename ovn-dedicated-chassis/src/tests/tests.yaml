@@ -8,7 +8,6 @@ smoke_bundles:
 
 dev_bundles:
 - jammy-bobcat
-- mantic-bobcat
 
 target_deploy_status:
   ovn-central:
@@ -32,7 +31,3 @@ tests:
 - zaza.openstack.charm_tests.ovn.tests.OVNDedicatedChassisDeferredRestartTest
 - zaza.openstack.charm_tests.ovn.tests.ChassisCharmOperationTest
 - zaza.openstack.charm_tests.ovn.tests.DedicatedChassisCosIntegrationTest
-
-tests_options:
-  force_deploy:
-    - mantic-bobcat
