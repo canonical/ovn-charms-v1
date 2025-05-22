@@ -27,6 +27,11 @@ applications:
     num_units: 2
     channel: legacy/stable
 
+  grafana-agent:
+    charm: ch:grafana-agent
+    channel: latest/stable
+    base: ubuntu@22.04
+
   ovn-chassis:
     charm: ../../../ovn-chassis_ubuntu-22.04-amd64.charm
 
@@ -43,3 +48,9 @@ relations:
 
   - - 'ovn-chassis:certificates'
     - 'vault:certificates'
+
+  - - 'grafana-agent:juju-info'
+    - 'magpie:juju-info'
+
+  - - 'grafana-agent:cos-agent'
+    - 'ovn-chassis:cos-agent'

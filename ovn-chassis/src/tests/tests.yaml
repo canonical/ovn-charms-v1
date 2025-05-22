@@ -8,7 +8,6 @@ smoke_bundles:
 
 dev_bundles:
 - jammy-bobcat
-- mantic-bobcat
 
 target_deploy_status:
   magpie:
@@ -22,12 +21,20 @@ target_deploy_status:
   vault:
     workload-status: blocked
     workload-status-message-prefix: Vault needs to be initialized
+  grafana-agent:
+    workload-status: blocked
+    workload-status-message-prefix: ""
 
 # Note that full end to end tests are performed with OVN in the
 # neutron-api-plugin-ovn and octavia charm gates
 configure:
+- jammy_caracal:
+  - zaza.openstack.charm_tests.vault.setup.auto_initialize_no_validation
+  - zaza.openstack.charm_tests.neutron.setup.undercloud_and_charm_setup
+  - zaza.openstack.charm_tests.cos.setup.try_relate_to_cos
 - zaza.openstack.charm_tests.vault.setup.auto_initialize_no_validation
 - zaza.openstack.charm_tests.neutron.setup.undercloud_and_charm_setup
+- zaza.openstack.charm_tests.cos.setup.try_relate_to_cos
 
 configure_options:
   # magpie is obviously not a hypervisor, but for the purpose of this charm
@@ -36,13 +43,17 @@ configure_options:
   hypervisor_application: 'magpie'
 
 tests:
+- jammy_caracal:
+  - zaza.openstack.charm_tests.ovn.tests.OVNChassisDeferredRestartTest
+  - zaza.openstack.charm_tests.ovn.tests.ChassisCharmOperationTest
+  - zaza.openstack.charm_tests.ovn.tests.ChassisCosIntegrationTest
+  - zaza.openstack.charm_tests.ovn.tests.DPDKTest
 - zaza.openstack.charm_tests.ovn.tests.OVNChassisDeferredRestartTest
 - zaza.openstack.charm_tests.ovn.tests.ChassisCharmOperationTest
+- zaza.openstack.charm_tests.ovn.tests.ChassisCosIntegrationTest
 - zaza.openstack.charm_tests.ovn.tests.DPDKTest
 
 tests_options:
   jammy_caracal:
     overlay_ppas:
       - cloud-archive:caracal
-  force_deploy:
-    - mantic-bobcat
