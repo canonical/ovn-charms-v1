@@ -28,7 +28,6 @@ class OVNDedicatedChassisConfigurationAdapter(
     # not be in our config for the time being.
     enable_dpdk = False
     enable_sriov = False
-    enable_hardware_offload = False
 
 
 class OVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
