@@ -12,8 +12,8 @@ parts:
       - python3-dev
       - libffi-dev
       - libssl-dev
-      - rustc-1.80
-      - cargo-1.80
+      - rustc-1.85
+      - cargo-1.85
       - pkg-config
     override-build: |
       # Note(mylesjp): Force build to use rustc-1.80
