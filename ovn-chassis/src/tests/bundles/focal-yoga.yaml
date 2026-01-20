@@ -23,7 +23,7 @@ applications:
     num_units: 3
     options:
       source: *openstack-origin
-    channel: latest/edge
+    channel: 22.03/stable
 
   magpie:
     # The large memory allocation for this application is for the purpose of DPDK
@@ -31,9 +31,7 @@ applications:
     constraints: "virt-type=virtual-machine mem=8G"
     charm: ch:magpie
     num_units: 2
-    options:
-      source: *openstack-origin
-    channel: latest/edge
+    channel: legacy/stable
 
   ovn-chassis:
     charm: ../../../ovn-chassis_ubuntu-20.04-amd64.charm
