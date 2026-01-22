@@ -27,7 +27,7 @@ applications:
 
   ovn-dedicated-chassis:
     constraints: "virt-type=virtual-machine"
-    charm: ../../../ovn-dedicated-chassis.charm
+    charm: ../../../ovn-dedicated-chassis_ubuntu-20.04-amd64.charm
     num_units: 2
     options:
       source: *openstack-origin
