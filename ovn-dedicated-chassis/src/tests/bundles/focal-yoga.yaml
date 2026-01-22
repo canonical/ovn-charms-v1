@@ -19,7 +19,7 @@ applications:
     num_units: 3
     options:
       source: *openstack-origin
-    channel: latest/edge
+    channel: 22.03/stable
 
   nrpe:
     charm: ch:nrpe

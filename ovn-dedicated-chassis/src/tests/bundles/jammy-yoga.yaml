@@ -17,7 +17,7 @@ applications:
     num_units: 3
     options:
       source: *openstack-origin
-    channel: latest/edge
+    channel: 22.03/stable
 
   ovn-dedicated-chassis:
     constraints: "virt-type=virtual-machine"
