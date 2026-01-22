@@ -20,6 +20,7 @@ applications:
     channel: latest/edge
 
   ovn-dedicated-chassis:
+    constraints: "virt-type=virtual-machine"
     charm: ../../../ovn-dedicated-chassis.charm
     num_units: 2
     options:

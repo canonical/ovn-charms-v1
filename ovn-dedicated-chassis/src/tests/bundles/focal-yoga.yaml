@@ -22,9 +22,11 @@ applications:
     channel: latest/edge
 
   nrpe:
-    charm: cs:nrpe
+    charm: ch:nrpe
+    channel: latest/stable
 
   ovn-dedicated-chassis:
+    constraints: "virt-type=virtual-machine"
     charm: ../../../ovn-dedicated-chassis.charm
     num_units: 2
     options:
