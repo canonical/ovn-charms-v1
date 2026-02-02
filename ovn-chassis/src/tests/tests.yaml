@@ -1,14 +1,11 @@
 charm_name: ovn-chassis
 
 gate_bundles:
-- focal-xena
 - focal-yoga
+- jammy-yoga
 
 smoke_bundles:
 - focal-yoga
-
-dev_bundles:
-- jammy-yoga
 
 target_deploy_status:
   magpie:
