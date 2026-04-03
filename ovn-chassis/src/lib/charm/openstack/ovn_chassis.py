@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 
-from charmhelpers.core.host import rsync, write_file
+from charmhelpers.core.host import cmp_pkgrevno, rsync, write_file
 from charmhelpers.contrib.charmsupport import nrpe
 import charmhelpers.fetch as ch_fetch
 
@@ -51,6 +52,33 @@ class OVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
     @property
     def packages(self):
         return super().packages + self.nrpe_packages
+
+    def dpdk_eal_allow_devices(self, devices):
+        """Build EAL command line argument for allowed devices.
+
+        Guard against the dpdk package not being installed yet when
+        cmp_pkgrevno is called, which causes an AttributeError.
+
+        :param devices: PCI devices for use by DPDK
+        :type devices: collections.OrderedDict[str,Tuple[str,str]]
+        :returns: Command line arguments for use with DPDK EAL.
+        :rtype: str
+        """
+        try:
+            if cmp_pkgrevno('dpdk', '20.11.3') >= 0:
+                flag = '-a'
+            else:
+                flag = '-w'
+        except (AttributeError, TypeError):
+            logging.warning(
+                'dpdk package is not yet installed, defaulting to '
+                '-a flag for EAL allow devices')
+            flag = '-a'
+
+        return ' '.join([
+            flag + ' ' + device
+            for device in devices
+        ])
 
     def render_nrpe(self):
         hostname = nrpe.get_nagios_hostname()
