@@ -12,13 +12,13 @@ parts:
     - python3-dev
     - libffi-dev
     - libssl-dev
-    - rustc-1.85
-    - cargo-1.85
+    - rustc-1.91
+    - cargo-1.91
     - pkg-config
     override-build: |
-      # Note(mylesjp): Force build to use rustc-1.85
-      ln -s /usr/bin/rustc-1.85 /usr/bin/rustc
-      ln -s /usr/bin/cargo-1.85 /usr/bin/cargo
+      # Note(mylesjp): Force build to use rustc-1.91
+      ln -s /usr/bin/rustc-1.91 /usr/bin/rustc
+      ln -s /usr/bin/cargo-1.91 /usr/bin/cargo
       craftctl default
     build-snaps:
     - charm/latest/edge
@@ -27,6 +27,7 @@ parts:
     - CHARM_LAYERS_DIR: $CRAFT_PROJECT_DIR/layers/
     - MAKEFLAGS: -j$(nproc)
     - CARGO_HTTP_MULTIPLEXING: 'false'
+    - MATURIN_NO_INSTALL_RUST: "1"
 
 base: ubuntu@24.04
 platforms:
