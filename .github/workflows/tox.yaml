@@ -28,6 +28,18 @@ jobs:
       run: |
         set -euxo pipefail
         codecov --verbose --gcov-glob unit_tests/*
+    - name: Build python package
+      run: |
+        set -euxo pipefail
+        tox -e build
+    - name: Validate the python package can be installed
+      run: |
+        set -euxo pipefail
+        VENV=$(mktemp -d)
+        python3 -m venv $VENV
+        source $VENV/bin/activate
+        pip install dist/*.tar.gz
+        functest-run-suite --help
   func:
     runs-on: ubuntu-latest
     strategy:
