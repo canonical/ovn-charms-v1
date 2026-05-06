@@ -33,6 +33,7 @@ import collections
 import concurrent
 import datetime
 import mock
+import tenacity
 import pytest
 import yaml
 
@@ -498,6 +499,78 @@ class TestModel(ut_utils.BaseTestCase):
             self.mymodel.disconnect.assert_called_once_with()
             self.mymodel.connect_model.assert_called_once_with(
                 self.mymodel.info.name)
+
+    def test_ensure_model_connected_reconnects_successfully(self):
+        """Reconnects on first attempt when model is disconnected."""
+        self.patch_object(model, 'is_model_disconnected', return_value=True)
+
+        async def _connect_model(*args):
+            return
+
+        self.mymodel.disconnect.side_effect = None
+        self.mymodel.connect_model.side_effect = _connect_model
+
+        async def _wrapper():
+            await model.ensure_model_connected(self.mymodel)
+
+        with mock.patch.object(zaza, 'RUN_LIBJUJU_IN_THREAD', new=False):
+            model.sync_wrapper(_wrapper)()
+            self.mymodel.connect_model.assert_called_once_with(
+                self.mymodel.info.name)
+
+    def test_ensure_model_connected_retries_then_succeeds(self):
+        """Retries connect_model and succeeds on 3rd attempt."""
+        self.patch_object(model, 'is_model_disconnected', return_value=True)
+
+        call_count = {'n': 0}
+
+        async def _connect_model_flaky(*args):
+            call_count['n'] += 1
+            if call_count['n'] < 3:
+                raise Exception("Temporary failure")
+
+        self.mymodel.disconnect.side_effect = None
+        self.mymodel.connect_model.side_effect = _connect_model_flaky
+
+        async def _wrapper():
+            await model.ensure_model_connected(self.mymodel)
+
+        with mock.patch('tenacity.wait_fixed',
+                        return_value=tenacity.wait_none()):
+            with mock.patch.object(zaza, 'RUN_LIBJUJU_IN_THREAD', new=False):
+                model.sync_wrapper(_wrapper)()
+                self.assertEqual(self.mymodel.connect_model.call_count, 3)
+
+    def test_ensure_model_connected_raises_model_timeout_after_retries(self):
+        """Raises ModelTimeout when all 5 reconnect attempts fail."""
+        self.patch_object(model, 'is_model_disconnected', return_value=True)
+
+        async def _connect_model_always_fails(*args):
+            raise Exception("Connection refused")
+
+        self.mymodel.disconnect.side_effect = None
+        self.mymodel.connect_model.side_effect = _connect_model_always_fails
+
+        async def _wrapper():
+            await model.ensure_model_connected(self.mymodel)
+
+        with mock.patch('tenacity.wait_fixed',
+                        return_value=tenacity.wait_none()):
+            with mock.patch.object(zaza, 'RUN_LIBJUJU_IN_THREAD', new=False):
+                with self.assertRaises(model.ModelTimeout):
+                    model.sync_wrapper(_wrapper)()
+                self.assertEqual(self.mymodel.connect_model.call_count, 5)
+
+    def test_ensure_model_connected_no_reconnect_when_connected(self):
+        """Does nothing when model is already connected."""
+        self.patch_object(model, 'is_model_disconnected', return_value=False)
+
+        async def _wrapper():
+            await model.ensure_model_connected(self.mymodel)
+
+        with mock.patch.object(zaza, 'RUN_LIBJUJU_IN_THREAD', new=False):
+            model.sync_wrapper(_wrapper)()
+            self.mymodel.connect_model.assert_not_called()
 
     def _mocks_for_block_until_auto_reconnect_model(
             self, is_connected=True, is_open=True):
