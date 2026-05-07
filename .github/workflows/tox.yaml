@@ -28,6 +28,18 @@ jobs:
       run: |
         set -euxo pipefail
         codecov --verbose --gcov-glob unit_tests/*
+    - name: Build python package
+      run: |
+        set -euxo pipefail
+        tox -e build
+    - name: Validate the python package can be installed
+      run: |
+        set -euxo pipefail
+        VENV=$(mktemp -d)
+        python3 -m venv $VENV
+        source $VENV/bin/activate
+        pip install dist/*.tar.gz
+        functest-run-suite --help
   func:
     runs-on: ubuntu-latest
     strategy:
@@ -112,13 +124,16 @@ jobs:
         juju models
         model=$(juju models --format yaml|grep "^- name:.*zaza"|cut -f2 -d/)
         juju status -m $model | tee logs/juju-status.txt
-        juju-crashdump -m $model -o logs/
+        juju status -m controller | tee logs/juju-status-controller.txt
+        juju-crashdump --as-root -m $model -o logs/
+        juju-crashdump --as-root -m controller -o logs/
     - name: upload logs on failure
       if: failure()
       uses: actions/upload-artifact@v4
       with:
         name: test-run-logs-and-crashdump
         path: logs/
-    - name: consider debugging
-      uses: lhotari/action-upterm@v1
-      if: failure()
+    # # disable upterm
+    # - name: consider debugging
+    #   uses: lhotari/action-upterm@v1
+    #   if: failure()

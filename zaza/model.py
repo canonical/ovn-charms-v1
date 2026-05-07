@@ -32,6 +32,7 @@ import tempfile
 import yaml
 from oslo_config import cfg
 import concurrent
+import tenacity
 import time
 
 import juju.client
@@ -341,7 +342,22 @@ async def ensure_model_connected(model):
             # model.connection().is_open may be false
             pass
         logging.warning("Attempting to reconnect model %s", model_name)
-        await model.connect_model(model_name)
+        try:
+            i = 0
+            async for attempt in tenacity.AsyncRetrying(
+                    stop=tenacity.stop_after_attempt(5),
+                    wait=tenacity.wait_fixed(5),
+                    reraise=True):
+                with attempt:
+                    logging.info(
+                        "Reconnect attempt #%s for model %s",
+                        i + 1, model_name)
+                    await model.connect_model(model_name)
+                    i += 1
+        except Exception as e:
+            logging.error("Failed to reconnect model %s: %s", model_name, e)
+            raise ModelTimeout("Failed to reconnect model {}: {}".format(
+                model_name, e))
 
 
 async def block_until_auto_reconnect_model(*conditions,

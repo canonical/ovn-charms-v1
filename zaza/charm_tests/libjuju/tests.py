@@ -57,8 +57,9 @@ class RegressionTest(unittest.TestCase):
         logging.info('Get the list of subordinates.')
         units = [u.entity_id for u in zaza.model.get_units('ubuntu')]
         logging.info('principal units found: %s', units)
-        subordinate = juju_utils.get_subordinate_units([units[0]],
-                                                       charm_name='ntp')
+        subordinate = juju_utils.get_subordinate_units(
+            [units[0]], charm_name='local-users'
+        )
         logging.info('subordinate(s) found %s for principal %s',
                      subordinate, units[0])
         self.assertEqual(len(subordinate), 1)

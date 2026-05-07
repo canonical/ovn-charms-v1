@@ -14,9 +14,9 @@ target_deploy_status:
     workload-status-message-prefix: icmp ok, local hostname ok
   ubuntu:
     workload-status-message-regex: "^$"
-  ntp:
+  local-users:
     workload-status: active
-    workload-status-message-prefix: 'chrony: Ready'
+    workload-status-message-prefix: ''
 configure:
 - zaza.charm_tests.noop.setup.basic_setup
 tests:

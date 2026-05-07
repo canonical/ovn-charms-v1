@@ -8,9 +8,8 @@ applications:
   ubuntu:
     charm: ch:ubuntu
     num_units: 3
-  ntp:
-    charm: ch:ntp
+  local-users:
+    charm: ch:local-users
     num_units: 0
 relations:
-  - - ubuntu
-    - ntp
+  - [ubuntu, local-users]
