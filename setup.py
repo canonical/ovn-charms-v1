@@ -33,7 +33,7 @@ install_require = [
     # * https://github.com/openstack-charmers/zaza/issues/421
     # * https://mail.python.org/pipermail/cryptography-dev/2021-January/001003.html
     'cryptography<3.4',
-
+    'juju',
     'hvac<0.7.0',
     'jinja2',
     'juju-wait',
@@ -44,10 +44,6 @@ install_require = [
     # https://github.com/go-macaroon-bakery/py-macaroon-bakery/issues/94
     'macaroonbakery != 1.3.3',
 ]
-if os.environ.get("TEST_JUJU3"):
-    install_require.append('juju')
-else:
-    install_require.append('juju<3.0.0')
 
 tests_require = [
     'tox >= 2.3.1',
