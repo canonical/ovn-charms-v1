@@ -1,0 +1,27 @@
+includes:
+  - layer:ovn
+  - interface:ovsdb
+  - interface:nrpe-external-master
+options:
+  basic:
+    use_venv: True
+    include_system_packages: False
+repo: https://github.com/canonical/charm-ovn-dedicated-chassis
+config:
+  deletes:
+    - dpdk-bond-config
+    - dpdk-bond-mappings
+    - dpdk-driver
+    - dpdk-socket-cores
+    - dpdk-socket-memory
+    - enable-dpdk
+    - enable-sriov
+    - networking-tools-source
+    - sriov-device-mappings
+    - debug
+    - ssl_ca
+    - ssl_cert
+    - ssl_key
+    - use-internal-endpoints
+    - use-syslog
+    - verbose
