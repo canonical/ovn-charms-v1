@@ -1,0 +1,36 @@
+sudo: true
+dist: xenial
+language: python
+install:
+ - pip install tox-travis
+matrix:
+  include:
+    - name: "Python 3.6"
+      python: 3.6
+      env: ENV=pep8,py3
+    - name: "Python 3.7"
+      python: 3.7
+      env: ENV=pep8,py3
+    - name: "Functional test"
+      env: ENV=func-smoke
+script:
+  - if [ $ENV = 'func-smoke' ]; then
+    sudo apt update;
+    sudo apt install -y distro-info;
+    sudo apt remove -y --purge lxd lxd-client;
+    sudo snap install lxd;
+    sudo snap install juju --classic;
+    sudo sh -c 'echo PATH=/snap/bin:$PATH >> /etc/environment';
+    sudo lxd waitready;
+    sudo lxd init --auto;
+    sudo usermod -a -G lxd travis;
+    sudo su travis -c 'juju bootstrap --no-gui localhost';
+    echo "export PATH=$PATH;cd $(pwd)" > $HOME/saved_path;
+    sudo su - travis -c "source $HOME/saved_path; tox -e build";
+    sudo su - travis -c "source $HOME/saved_path; tox -c build/builds/ovn-central/tox.ini -e $ENV -- --log DEBUG";
+    else
+    tox -c tox.ini -e $ENV;
+    fi
+  - if [ $ENV = 'func-smoke' ]; then
+     sudo su travis -c 'juju status -m $(juju models --format yaml|grep "^- name:.*zaza"|cut -f2 -d/)';
+     fi

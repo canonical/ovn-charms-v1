@@ -1,0 +1,99 @@
+options:
+  source:
+    default: caracal
+    type: string
+    description: |
+      Repository from which to install packages.
+
+      May be one of the following:
+
+        distro (default)
+        ppa:somecustom/ppa (PPA name must include UCA OpenStack Release name)
+        deb url sources entry|key id
+        or a supported Ubuntu Cloud Archive pocket.
+
+      Supported Ubuntu Cloud Archive pockets include:
+
+        cloud:xenial-pike
+        cloud:xenial-queens
+        cloud:bionic-rocky
+
+      Note that updating this setting to a source that is known to
+      provide a later version of Ceph will trigger a software
+      upgrade.
+  ovn-source:
+    default: ''
+    type: string
+    description: |
+      Overlay repository from which to install OVS+OVN.
+
+      The default for this configuration option is determined at charm
+      runtime.
+
+      When charm is deployed into a fresh environment on Ubuntu
+      20.04 (Focal Fossa), the default will be 'cloud:focal-ovn-22.03'.
+
+      When charm is upgraded or deployed into a fresh environment
+      on a different series the default will be to not use the
+      overlay repository.
+
+      To disable the overlay repository, set this option to 'distro'.
+
+      Note that updating this setting to a source that is known to
+      provide a later version of OVN will trigger a software
+      upgrade.
+  ovsdb-server-election-timer:
+    default: 4
+    type: int
+    description: |
+      Raft leader election timeout in seconds. The charm allows a value between
+      1 and 60 seconds.
+      .
+      The Open vSwitch ovsdb-server default of 1 second may not be sufficient
+      for a loaded cluster where the database server may be too busy serving
+      requests to respond to elections in time.
+      .
+      Using a higher value will increase the time to discover a real failure,
+      but you must weigh that against the risk of spurious leader flapping and
+      the unwanted churn that entails.
+      .
+      NOTE: The ovsdb-server will refuse to decrease or increase the value of
+      this timer more than 2x the current value. The charm will compensate for
+      this and decrease / increase the timer in increments, but care should be
+      taken to not decrease / increase the value too much in one operation.
+  ovsdb-server-inactivity-probe:
+    default: 60
+    type: int
+    description: |
+      Maximum number of seconds of idle time on connection to client before
+      sending an inactivity probe message.
+
+      The Open vSwitch ovsdb-server default of 5 seconds may not be sufficient
+      depending on type and load of the CMS you want to connect to OVN.
+  nagios_context:
+    default: "juju"
+    type: string
+    description: |
+      A string that will be prepended to instance name to set the host name
+      in nagios. So for instance the hostname would be something like:
+          juju-myservice-0
+      If you're running multiple environments with the same services in them
+      this allows you to differentiate between them.
+  nagios_servicegroups:
+    default: ""
+    type: string
+    description: |
+      Comma separated list of nagios servicegroups for the service checks.
+  enable-auto-restarts:
+    type: boolean
+    default: True
+    description: |
+      Allow the charm and packages to restart services automatically when
+      required.
+  ovn-exporter-channel:
+    type: string
+    default: stable
+    description: >-
+      The snap channel to install the prometheus-ovn-exporter from. Setting
+      this option to an empty string will result in the snap not being
+      installed or removed if it has already been installed.
