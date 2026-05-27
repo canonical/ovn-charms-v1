@@ -1,0 +1,31 @@
+name: ovn-chassis
+summary: Open Virtual Network for Open vSwitch - Chassis
+maintainer: OpenStack Charmers <openstack-charmers@lists.ubuntu.com>
+description: |
+  Subordinate charm that deploys the OVN local controller and Open vSwitch
+  Database and Switch.
+docs: https://discourse.charmhub.io/t/ovn-chassis-docs-index/11011
+tags:
+- networking
+series:
+- focal
+- jammy
+subordinate: true
+extra-bindings:
+  data:
+provides:
+  nova-compute:
+    interface: neutron-plugin
+    scope: container
+  ovsdb-subordinate:
+    interface: ovsdb-subordinate
+    scope: container
+  nrpe-external-master:
+    interface: nrpe-external-master
+    scope: container
+requires:
+  juju-info:
+    interface: juju-info
+    scope: container
+  ovsdb:
+    interface: ovsdb
