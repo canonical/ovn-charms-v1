@@ -1,0 +1,36 @@
+charm_name: ovn-dedicated-chassis
+
+gate_bundles:
+- jammy-antelope
+- jammy-zed
+- lunar-antelope
+
+smoke_bundles:
+- jammy-zed
+
+dev_bundles:
+- jammy-zed
+- jammy-antelope
+- lunar-antelope
+
+target_deploy_status:
+  ovn-central:
+    workload-status: waiting
+    workload-status-message-prefix: "'ovsdb-peer' incomplete, 'certificates' awaiting server certificate data"
+  ovn-dedicated-chassis:
+    workload-status: waiting
+    workload-status-message-prefix: "'certificates' awaiting server certificate data"
+  vault:
+    workload-status: blocked
+    workload-status-message-prefix: Vault needs to be initialized
+
+configure:
+- zaza.openstack.charm_tests.vault.setup.auto_initialize_no_validation
+
+tests:
+- zaza.openstack.charm_tests.ovn.tests.OVNDedicatedChassisDeferredRestartTest
+- zaza.openstack.charm_tests.ovn.tests.ChassisCharmOperationTest
+
+tests_options:
+  force_deploy:
+    - lunar-antelope
