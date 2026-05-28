@@ -1,12 +1,15 @@
 charm_name: ovn-central
 
 gate_bundles:
+- noble-caracal
 - jammy-caracal
 
 smoke_bundles:
+- noble-caracal
 - jammy-caracal
 
 dev_bundles:
+- noble-caracal
 - jammy-caracal
 
 target_deploy_status:
