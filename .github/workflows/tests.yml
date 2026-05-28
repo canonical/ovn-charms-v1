@@ -105,7 +105,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ovn-${{ matrix.charm }}-charm
-          path: ./ovn-${{ matrix.charm }}/ovn-${{ matrix.charm }}_amd64.charm
+          path: ./ovn-${{ matrix.charm }}/*.charm
           retention-days: 7
 
   parse_tags:
