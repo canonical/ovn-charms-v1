@@ -17,8 +17,8 @@ parts:
     - pkg-config
     override-build: |
       # Note(mylesjp): Force build to use rustc-1.91
-      ln -s /usr/bin/rustc-1.91 /usr/bin/rustc
-      ln -s /usr/bin/cargo-1.91 /usr/bin/cargo
+      ln -sf /usr/bin/rustc-1.91 /usr/bin/rustc
+      ln -sf /usr/bin/cargo-1.91 /usr/bin/cargo
       craftctl default
     build-snaps:
     - charm/latest/edge
