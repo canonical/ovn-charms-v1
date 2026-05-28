@@ -75,6 +75,7 @@ jobs:
     strategy:
       matrix:
         charm: [central, chassis, dedicated-chassis]
+        platform: ["ubuntu@24.04", "ubuntu@22.04"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -98,13 +99,14 @@ jobs:
       - name: Build charm
         working-directory: ./ovn-${{ matrix.charm }}
         run: |
+          ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
           charmcraft clean
-          charmcraft -v pack
+          charmcraft -v pack --platform ${{ matrix.platform }}:$ARCH
 
       - name: Store charm as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ovn-${{ matrix.charm }}-charm
+          name: ovn-${{ matrix.charm }}-${{ matrix.platform }}-charm
           path: ./ovn-${{ matrix.charm }}/*.charm
           retention-days: 7
 
@@ -148,5 +150,6 @@ jobs:
     uses: ./.github/workflows/reusable-functest.yml
     with:
       charm: ${{ matrix.charm }}
+      platform: "ubuntu@24.04"
       zaza_pr: ${{ needs.parse_tags.outputs.zaza_pr }}
     secrets: inherit
