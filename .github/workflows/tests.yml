@@ -147,9 +147,16 @@ jobs:
     strategy:
       matrix:
         charm: [central, chassis, dedicated-chassis]
+        bundle: ["noble-caracal", "jammy-caracal"]
+        include:
+          - bundle: "noble-caracal"
+            platform: "ubuntu@24.04"
+          - bundle: "jammy-caracal"
+            platform: "ubuntu@22.04"
     uses: ./.github/workflows/reusable-functest.yml
     with:
       charm: ${{ matrix.charm }}
-      platform: "ubuntu@24.04"
+      bundle: ${{ matrix.bundle }}
+      platform: ${{ matrix.platform }}
       zaza_pr: ${{ needs.parse_tags.outputs.zaza_pr }}
     secrets: inherit
