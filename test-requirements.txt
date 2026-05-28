@@ -1,5 +1,4 @@
 stestr>=2.2.0
-setuptools
 requests>=2.18.4
 charms.reactive
 mock>=1.2
