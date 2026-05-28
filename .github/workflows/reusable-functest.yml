@@ -14,6 +14,10 @@ on:
         required: false
         type: string
         default: "noble-caracal"
+      platform:
+        required: false
+        type: string
+        default: "ubuntu@24.04"
 
 jobs:
   functest:
@@ -28,7 +32,7 @@ jobs:
       - name: Download built charm
         uses: actions/download-artifact@v4
         with:
-          name: ovn-${{ inputs.charm }}-charm
+          name: ovn-${{ inputs.charm }}-${{ inputs.platform }}-charm
           path: ./ovn-${{ inputs.charm }}/
 
       - name: Install dependencies
