@@ -13,7 +13,7 @@ applications:
     channel: latest/edge
 
   ovn-central:
-    charm: ../../../ovn-central_amd64.charm
+    charm: ../../../ovn-central_ubuntu@24.04-amd64.charm
     num_units: 3
     options:
       source: *openstack-origin

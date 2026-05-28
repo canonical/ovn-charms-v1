@@ -20,7 +20,7 @@ applications:
     channel: latest/edge
 
   ovn-dedicated-chassis:
-    charm: ../../../ovn-dedicated-chassis_amd64.charm
+    charm: ../../../ovn-dedicated-chassis_ubuntu@24.04-amd64.charm
     num_units: 2
     constraints: "virt-type=virtual-machine mem=4G"
     options:

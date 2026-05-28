@@ -32,7 +32,7 @@ applications:
     base: ubuntu@24.04
 
   ovn-chassis:
-    charm: ../../../ovn-chassis_amd64.charm
+    charm: ../../../ovn-chassis_ubuntu@24.04-amd64.charm
 
 relations:
 
