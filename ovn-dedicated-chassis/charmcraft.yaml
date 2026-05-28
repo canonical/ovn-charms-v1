@@ -14,6 +14,12 @@ parts:
       - libssl-dev
       - rustc-1.85
       - cargo-1.85
+      - pkg-config
+    override-build: |
+      # Note(mylesjp): Force build to use rustc-1.85
+      ln -sf /usr/bin/rustc-1.85 /usr/bin/rustc
+      ln -sf /usr/bin/cargo-1.85 /usr/bin/cargo
+      craftctl default
     build-snaps:
       - charm
     build-environment:
