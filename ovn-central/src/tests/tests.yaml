@@ -7,9 +7,7 @@ smoke_bundles:
 - jammy-caracal
 
 dev_bundles:
-- jammy-bobcat
 - jammy-caracal
-- mantic-bobcat
 
 target_deploy_status:
   ovn-central:
@@ -37,7 +35,3 @@ tests:
 - zaza.openstack.charm_tests.ovn.tests.CentralCosIntegrationTest
 - zaza.openstack.charm_tests.ovn.tests.OVNCentralDownscaleTests
 - zaza.openstack.charm_tests.ovn.tests.OVNCentralSSLExpireTests
-
-tests_options:
-  force_deploy:
-    - mantic-bobcat

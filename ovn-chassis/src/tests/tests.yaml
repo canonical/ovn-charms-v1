@@ -6,9 +6,6 @@ gate_bundles:
 smoke_bundles:
 - jammy_caracal: jammy-caracal
 
-dev_bundles:
-- jammy-bobcat
-
 target_deploy_status:
   magpie:
     workload-status-message: icmp ok

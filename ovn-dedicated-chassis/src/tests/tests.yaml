@@ -6,9 +6,6 @@ gate_bundles:
 smoke_bundles:
 - jammy-caracal
 
-dev_bundles:
-- jammy-bobcat
-
 target_deploy_status:
   ovn-central:
     workload-status: waiting
