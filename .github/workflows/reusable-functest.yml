@@ -1,0 +1,131 @@
+name: Functional Tests (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      charm:
+        required: true
+        type: string
+      zaza_pr:
+        required: false
+        type: string
+        default: ""
+      bundle:
+        required: false
+        type: string
+        default: "noble-caracal"
+
+jobs:
+  functest:
+    name: Functional Tests (${{ inputs.charm }})
+    runs-on: [self-hosted, linux, X64, large, noble]
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download built charm
+        uses: actions/download-artifact@v4
+        with:
+          name: ovn-${{ inputs.charm }}-charm
+          path: ./ovn-${{ inputs.charm }}/
+
+      - name: Install dependencies
+        run: |
+          sudo apt -yqq install tox
+          sudo snap install concierge --classic
+          sudo snap install juju-wait --classic
+
+      - name: Prepare Environment for functional tests
+        run: |
+          # Use concierge to setup LXD, microk8s and bootstrap juju controller
+          cat <<EOF >>/tmp/concierge.yaml
+          juju:
+            channel: 3.6/stable
+
+          providers:
+            microk8s:
+              enable: true
+              bootstrap: false
+              addons:
+                - dns
+                - hostpath-storage
+                - metallb
+
+            lxd:
+              enable: true
+              bootstrap: true
+          EOF
+
+          # Workaround for canonical/concierge#75
+          sudo snap install microk8s --channel 1.32-strict/stable
+          sudo mkdir -p /var/snap/microk8s/current/args/certs.d/docker.io
+          cat <<EOF | sudo tee /var/snap/microk8s/current/args/certs.d/docker.io/hosts.toml
+          server = "$DOCKERHUB_MIRROR"
+          [host."$DOCKERHUB_MIRROR"]
+          capabilities = ["pull", "resolve"]
+          EOF
+          sudo microk8s stop
+          sudo microk8s start
+
+          sudo concierge prepare -c /tmp/concierge.yaml
+
+          # Create second bridged network needed by the functional tests
+          lxc network create second --type=bridge || true
+
+          # Add microk8s as a kubernetes substrate to the Juju controller
+          sudo microk8s status --wait
+          # The kubernetes API is not always immediately available to use, even if
+          # microk8s status reports ready state. These retries ensure that we don't
+          # fail the test unnecessarily
+          (r=30;while ! juju add-k8s mk8s --controller concierge-lxd ; do ((--r))||exit;sleep 2;done)
+
+      - name: Install custom functional test repository
+        if: ${{ inputs.zaza_pr != '' }}
+        working-directory: ./ovn-${{ inputs.charm }}/src/
+        env:
+          ZAZA_PR: ${{ inputs.zaza_pr }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tox -e func-target --notest
+
+          gh pr view --json headRepositoryOwner,headRepository,headRefName "$ZAZA_PR" > /tmp/zaza-pr.json
+          PR_OWNER=$(cat /tmp/zaza-pr.json | jq -r '.headRepositoryOwner.login')
+          PR_REPO=$(cat /tmp/zaza-pr.json | jq -r '.headRepository.name')
+          PR_BRANCH=$(cat /tmp/zaza-pr.json | jq -r '.headRefName')
+          PR_REPO_URL=$(gh repo view --json url --jq '.url' $PR_OWNER/$PR_REPO)
+
+          source .tox/func-target/bin/activate
+          pip install --force-reinstall --no-deps git+"$PR_REPO_URL"@"$PR_BRANCH"
+
+      - name: Deploy COS lite bundle
+        working-directory: ./ovn-${{ inputs.charm }}/src/tests/bundles/
+        run: |
+          juju add-model cos-lite mk8s
+          juju deploy ./cos-lite.yaml --trust --overlay ./offers-overlay.yaml
+          juju-wait -v
+          juju status
+
+      - name: Run functional tests for bundle ${{ inputs.bundle }}
+        working-directory: ./ovn-${{ inputs.charm }}/src/
+        run: |
+          tox -e func-target -- ${{ inputs.bundle }}
+
+      - name: Generate crash dumps
+        if: failure()
+        run: |
+          sudo snap install --classic juju-crashdump
+          models=$(juju models | grep zaza | awk '{print $1}' | tr -d '*')
+          rm -rf ./crashdumps
+          mkdir ./crashdumps
+          for model in $models; do
+            juju-crashdump -m $model -o ./crashdumps
+          done
+
+      - name: Upload artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crashdumps-${{ inputs.charm }}-${{ inputs.bundle }}
+          path: "./crashdumps/*"
