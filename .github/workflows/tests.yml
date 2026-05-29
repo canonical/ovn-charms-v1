@@ -73,6 +73,7 @@ jobs:
       - coverage
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         charm: [central, chassis, dedicated-chassis]
         platform: ["ubuntu@24.04", "ubuntu@22.04"]
@@ -145,6 +146,7 @@ jobs:
       - build
       - parse_tags
     strategy:
+      fail-fast: false
       matrix:
         charm: [central, chassis, dedicated-chassis]
         bundle: ["noble-caracal", "jammy-caracal"]
