@@ -6,6 +6,7 @@ parts:
     plugin: reactive
     reactive-charm-build-arguments:
       - --binary-wheels-from-source
+      - --upgrade-buildvenv-core-deps
       - -v
     build-packages:
       - git
