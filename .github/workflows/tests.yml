@@ -13,7 +13,7 @@ jobs:
         charm: [central, chassis, dedicated-chassis]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install dependencies
         run: |
@@ -32,10 +32,10 @@ jobs:
         python-version: ["3.10", "3.12"]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -55,7 +55,7 @@ jobs:
         charm: [central, chassis, dedicated-chassis]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install dependencies
         run: |
@@ -79,7 +79,7 @@ jobs:
         platform: ["ubuntu@24.04", "ubuntu@22.04"]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install dependencies
         run: |
@@ -105,7 +105,7 @@ jobs:
           charmcraft -v pack --platform ${{ matrix.platform }}:$ARCH
 
       - name: Store charm as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ovn-${{ matrix.charm }}-${{ matrix.platform }}-charm
           path: ./ovn-${{ matrix.charm }}/*.charm
@@ -121,7 +121,7 @@ jobs:
     steps:
       - name: Get PR commits
         id: 'get-pr-commits'
-        uses: tim-actions/get-pr-commits@198af03565609bb4ed924d1260247b4881f09e7d
+        uses: tim-actions/get-pr-commits@v1.3.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 

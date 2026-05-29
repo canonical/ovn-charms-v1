@@ -27,10 +27,10 @@ jobs:
       DEBIAN_FRONTEND: noninteractive
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download built charm
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: ovn-${{ inputs.charm }}-${{ inputs.platform }}-charm
           path: ./ovn-${{ inputs.charm }}/
@@ -129,7 +129,7 @@ jobs:
 
       - name: Upload artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: crashdumps-${{ inputs.charm }}-${{ inputs.bundle }}
           path: "./crashdumps/*"
