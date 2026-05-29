@@ -79,7 +79,7 @@ jobs:
           lxc network create second --type=bridge || true
 
           # Add microk8s as a kubernetes substrate to the Juju controller
-          sudo microk8s status --wait
+          (r=30;while ! sudo microk8s status --wait ; do ((--r))||exit;sleep 2;done)
           # The kubernetes API is not always immediately available to use, even if
           # microk8s status reports ready state. These retries ensure that we don't
           # fail the test unnecessarily
