@@ -3,7 +3,7 @@ variables:
 
 local_overlay_enabled: False
 
-series: noble
+series: jammy
 
 applications:
 
@@ -13,7 +13,7 @@ applications:
     channel: latest/edge
 
   ovn-central:
-    charm: ../../../ovn-central_ubuntu@24.04-amd64.charm
+    charm: ../../../ovn-central_ubuntu@22.04-amd64.charm
     num_units: 3
     options:
       source: *openstack-origin
@@ -21,7 +21,7 @@ applications:
   grafana-agent:
     charm: ch:grafana-agent
     channel: 1/stable
-    base: ubuntu@24.04
+    base: ubuntu@22.04
 
 relations:
 

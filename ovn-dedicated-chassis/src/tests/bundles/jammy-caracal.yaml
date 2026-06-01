@@ -3,7 +3,7 @@ variables:
 
 local_overlay_enabled: False
 
-series: noble
+series: jammy
 
 applications:
 
@@ -20,7 +20,7 @@ applications:
     channel: latest/edge
 
   ovn-dedicated-chassis:
-    charm: ../../../ovn-dedicated-chassis_ubuntu@24.04-amd64.charm
+    charm: ../../../ovn-dedicated-chassis_ubuntu@22.04-amd64.charm
     num_units: 2
     constraints: "virt-type=virtual-machine mem=4G"
     options:
@@ -29,7 +29,7 @@ applications:
   grafana-agent:
     charm: ch:grafana-agent
     channel: 1/stable
-    base: ubuntu@24.04
+    base: ubuntu@22.04
 
 relations:
 
@@ -41,4 +41,3 @@ relations:
     - 'vault:certificates'
   - - 'grafana-agent:cos-agent'
     - 'ovn-dedicated-chassis:cos-agent'
-

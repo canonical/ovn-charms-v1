@@ -14,6 +14,10 @@ on:
         required: false
         type: string
         default: "noble-caracal"
+      platform:
+        required: false
+        type: string
+        default: "ubuntu@24.04"
 
 jobs:
   functest:
@@ -23,12 +27,12 @@ jobs:
       DEBIAN_FRONTEND: noninteractive
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download built charm
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
-          name: ovn-${{ inputs.charm }}-charm
+          name: ovn-${{ inputs.charm }}-${{ inputs.platform }}-charm
           path: ./ovn-${{ inputs.charm }}/
 
       - name: Install dependencies
@@ -75,7 +79,7 @@ jobs:
           lxc network create second --type=bridge || true
 
           # Add microk8s as a kubernetes substrate to the Juju controller
-          sudo microk8s status --wait
+          (r=30;while ! sudo microk8s status --wait ; do ((--r))||exit;sleep 2;done)
           # The kubernetes API is not always immediately available to use, even if
           # microk8s status reports ready state. These retries ensure that we don't
           # fail the test unnecessarily
@@ -125,7 +129,7 @@ jobs:
 
       - name: Upload artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: crashdumps-${{ inputs.charm }}-${{ inputs.bundle }}
           path: "./crashdumps/*"

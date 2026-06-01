@@ -13,7 +13,7 @@ jobs:
         charm: [central, chassis, dedicated-chassis]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install dependencies
         run: |
@@ -32,10 +32,10 @@ jobs:
         python-version: ["3.10", "3.12"]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -55,7 +55,7 @@ jobs:
         charm: [central, chassis, dedicated-chassis]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install dependencies
         run: |
@@ -73,11 +73,13 @@ jobs:
       - coverage
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         charm: [central, chassis, dedicated-chassis]
+        platform: ["ubuntu@24.04", "ubuntu@22.04"]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install dependencies
         run: |
@@ -98,14 +100,15 @@ jobs:
       - name: Build charm
         working-directory: ./ovn-${{ matrix.charm }}
         run: |
+          ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
           charmcraft clean
-          charmcraft -v pack
+          charmcraft -v pack --platform ${{ matrix.platform }}:$ARCH
 
       - name: Store charm as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
-          name: ovn-${{ matrix.charm }}-charm
-          path: ./ovn-${{ matrix.charm }}/ovn-${{ matrix.charm }}_amd64.charm
+          name: ovn-${{ matrix.charm }}-${{ matrix.platform }}-charm
+          path: ./ovn-${{ matrix.charm }}/*.charm
           retention-days: 7
 
   parse_tags:
@@ -118,7 +121,7 @@ jobs:
     steps:
       - name: Get PR commits
         id: 'get-pr-commits'
-        uses: tim-actions/get-pr-commits@198af03565609bb4ed924d1260247b4881f09e7d
+        uses: tim-actions/get-pr-commits@v1.3.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -143,10 +146,19 @@ jobs:
       - build
       - parse_tags
     strategy:
+      fail-fast: false
       matrix:
         charm: [central, chassis, dedicated-chassis]
+        bundle: ["noble-caracal", "jammy-caracal"]
+        include:
+          - bundle: "noble-caracal"
+            platform: "ubuntu@24.04"
+          - bundle: "jammy-caracal"
+            platform: "ubuntu@22.04"
     uses: ./.github/workflows/reusable-functest.yml
     with:
       charm: ${{ matrix.charm }}
+      bundle: ${{ matrix.bundle }}
+      platform: ${{ matrix.platform }}
       zaza_pr: ${{ needs.parse_tags.outputs.zaza_pr }}
     secrets: inherit

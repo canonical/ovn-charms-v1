@@ -3,13 +3,14 @@ variables:
 
 local_overlay_enabled: False
 
-series: noble
+series: jammy
 
 applications:
 
   vault:
     charm: ch:vault
     num_units: 1
+    series: jammy
     channel: latest/edge
 
   ovn-central:
@@ -19,26 +20,36 @@ applications:
       source: *openstack-origin
     channel: latest/edge
 
-  ovn-dedicated-chassis:
-    charm: ../../../ovn-dedicated-chassis_ubuntu@24.04-amd64.charm
+  ubuntu:
+    charm: ch:ubuntu
     num_units: 2
-    constraints: "virt-type=virtual-machine mem=4G"
-    options:
-      source: *openstack-origin
+    channel: latest/edge
+    constraints: "virt-type=virtual-machine mem=8G"
 
   grafana-agent:
     charm: ch:grafana-agent
     channel: 1/stable
-    base: ubuntu@24.04
+    base: ubuntu@22.04
+
+  ovn-chassis:
+    charm: ../../../ovn-chassis_ubuntu@22.04-amd64.charm
 
 relations:
 
   - - 'ovn-central:certificates'
     - 'vault:certificates'
-  - - 'ovn-dedicated-chassis:ovsdb'
-    - 'ovn-central:ovsdb'
-  - - 'ovn-dedicated-chassis:certificates'
-    - 'vault:certificates'
-  - - 'grafana-agent:cos-agent'
-    - 'ovn-dedicated-chassis:cos-agent'
 
+  - - 'ubuntu:juju-info'
+    - 'ovn-chassis:juju-info'
+
+  - - 'ovn-chassis:ovsdb'
+    - 'ovn-central:ovsdb'
+
+  - - 'ovn-chassis:certificates'
+    - 'vault:certificates'
+
+  - - 'grafana-agent:juju-info'
+    - 'ubuntu:juju-info'
+
+  - - 'grafana-agent:cos-agent'
+    - 'ovn-chassis:cos-agent'
