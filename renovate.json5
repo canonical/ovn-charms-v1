@@ -1,0 +1,102 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+
+  extends: [
+    "config:recommended",
+  ],
+
+  baseBranchPatterns: ["main", "/^stable\\/.*/"],
+
+  dependencyDashboard: true,
+  dependencyDashboardOSVVulnerabilitySummary: "all",
+
+  osvVulnerabilityAlerts: true,
+  vulnerabilityAlerts: {
+    enabled: true,
+    labels: ["security"],
+  },
+
+  abandonmentThreshold: "2 years",
+  minimumReleaseAge: "3 days",
+  separateMinorPatch: true,
+
+  customManagers: [
+    {
+      customType: "regex",
+      description: "Track PyPI Python modules in build.lock",
+      managerFilePatterns: ["/src/build\\.lock$/"],
+      matchStrings: [
+        '"package":\\s*"(?<depName>[^"]+)"[^}]*?"type":\\s*"python_module"[^}]*?"vcs":\\s*null[^}]*?"version":\\s*"(?<currentValue>[^"]+)"',
+      ],
+      datasourceTemplate: "pypi",
+      versioningTemplate: "pep440",
+      depTypeTemplate: "python_module",
+    },
+    {
+      customType: "regex",
+      description:
+        "Track git-based Python modules in build.lock (GitHub repos pinned by commit)",
+      managerFilePatterns: ["/src/build\\.lock$/"],
+      matchStrings: [
+        '"package":\\s*"(?<depName>[^"]+)"[^}]*?"type":\\s*"python_module"[^}]*?"url":\\s*"git\\+https://github\\.com/(?<packageName>[^"]+)\\.git"[^}]*?"vcs":\\s*"git"[^}]*?"version":\\s*"(?<currentDigest>[^"]+)"',
+      ],
+      currentValueTemplate: "0.0.0",
+      datasourceTemplate: "github-tags",
+      versioningTemplate: "semver",
+      depTypeTemplate: "python_module_git",
+      autoReplaceStringTemplate:
+        '"package": "{{{depName}}}",\n      "type": "python_module",\n      "url": "git+https://github.com/{{{packageName}}}.git",\n      "vcs": "git",\n      "version": "{{{newDigest}}}"',
+    },
+    {
+      customType: "regex",
+      description: "Track layer git references in build.lock (GitHub only)",
+      managerFilePatterns: ["/src/build\\.lock$/"],
+      matchStrings: [
+        '"type":\\s*"layer"[^}]*?"item":\\s*"(?<depName>[^"]+)"[^}]*?"url":\\s*"https://github\\.com/(?<packageName>[^"]+?)(?:\\.git)?"[^}]*?"branch":\\s*"(?<currentDigest>[a-f0-9]{40})"[^}]*?"commit":\\s*"[a-f0-9]{40}"',
+      ],
+      currentValueTemplate: "0.0.0",
+      datasourceTemplate: "github-tags",
+      versioningTemplate: "semver",
+      depTypeTemplate: "layer",
+      autoReplaceStringTemplate:
+        '"type": "layer",\n      "item": "{{{depName}}}",\n      "url": "https://github.com/{{{packageName}}}.git",\n      "vcs": null,\n      "branch": "{{{newDigest}}}",\n      "commit": "{{{newDigest}}}"',
+    },
+  ],
+
+  packageRules: [
+    {
+      matchManagers: ["custom.regex"],
+      matchDepTypes: ["python_module"],
+      semanticCommitType: "fix",
+      semanticCommitScope: "deps",
+      groupName: "build.lock PyPI deps",
+      groupSlug: "build-lock-pypi",
+    },
+    {
+      matchManagers: ["custom.regex"],
+      matchDepTypes: ["python_module"],
+      matchUpdateTypes: ["major"],
+      dependencyDashboardApproval: true,
+      labels: ["major-update"],
+    },
+    {
+      matchManagers: ["custom.regex"],
+      matchDepTypes: ["python_module_git"],
+      semanticCommitType: "fix",
+      semanticCommitScope: "deps",
+      pinDigests: true,
+    },
+    {
+      matchManagers: ["custom.regex"],
+      matchDepTypes: ["layer"],
+      semanticCommitType: "chore",
+      semanticCommitScope: "layers",
+      enabled: false,
+      pinDigests: true,
+    },
+    {
+      matchUpdateTypes: ["major"],
+      dependencyDashboardApproval: true,
+    },
+  ],
+}
