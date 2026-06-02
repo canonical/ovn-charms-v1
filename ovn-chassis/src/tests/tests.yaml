@@ -1,16 +1,16 @@
 charm_name: ovn-chassis
 
 gate_bundles:
-- noble-caracal
-- jammy-caracal
+- noble-caracal: noble-caracal
+- jammy-caracal: jammy-caracal
 
 smoke_bundles:
-- noble-caracal
-- jammy-caracal
+- noble-caracal: noble-caracal
+- jammy-caracal: jammy-caracal
 
 dev_bundles:
-- noble-caracal
-- jammy-caracal
+- noble-caracal: noble-caracal
+- jammy-caracal: jammy-caracal
 
 target_deploy_status:
   ubuntu:
@@ -31,9 +31,14 @@ target_deploy_status:
 # Note that full end to end tests are performed with OVN in the
 # neutron-api-plugin-ovn and octavia charm gates
 configure:
-- zaza.openstack.charm_tests.vault.setup.auto_initialize_no_validation
-- zaza.openstack.charm_tests.neutron.setup.undercloud_and_charm_setup
-- zaza.openstack.charm_tests.cos.setup.try_relate_to_cos
+  - noble-caracal:
+    - zaza.openstack.charm_tests.vault.setup.auto_initialize_no_validation
+    - zaza.openstack.charm_tests.neutron.setup.undercloud_and_charm_setup
+    - zaza.openstack.charm_tests.cos.setup.try_relate_to_cos
+  - jammy-caracal:
+    - zaza.openstack.charm_tests.vault.setup.auto_initialize_no_validation
+    - zaza.openstack.charm_tests.neutron.setup.undercloud_and_charm_setup
+    - zaza.openstack.charm_tests.cos.setup.try_relate_to_cos
 
 configure_options:
   # ubuntu is obviously not a hypervisor, but for the purpose of this charm
@@ -42,8 +47,18 @@ configure_options:
   hypervisor_application: 'ubuntu'
 
 tests:
-- zaza.openstack.charm_tests.ovn.tests.OVNChassisDeferredRestartTest
-- zaza.openstack.charm_tests.ovn.tests.ChassisCharmOperationTest
-- zaza.openstack.charm_tests.ovn.tests.ChassisCosIntegrationTest
-- zaza.openstack.charm_tests.ovn.tests.DPDKTest
+  - noble-caracal:
+    - zaza.openstack.charm_tests.ovn.tests.OVNChassisDeferredRestartTest
+    - zaza.openstack.charm_tests.ovn.tests.ChassisCharmOperationTest
+    - zaza.openstack.charm_tests.ovn.tests.ChassisCosIntegrationTest
+    - zaza.openstack.charm_tests.ovn.tests.DPDKTest
+  - jammy-caracal:
+    - zaza.openstack.charm_tests.ovn.tests.OVNChassisDeferredRestartTest
+    - zaza.openstack.charm_tests.ovn.tests.ChassisCharmOperationTest
+    - zaza.openstack.charm_tests.ovn.tests.ChassisCosIntegrationTest
+    - zaza.openstack.charm_tests.ovn.tests.DPDKTest
 
+tests_options:
+  jammy-caracal:
+    overlay_ppas:
+      - ppa:ubuntu-cloud-archive/caracal-updates
