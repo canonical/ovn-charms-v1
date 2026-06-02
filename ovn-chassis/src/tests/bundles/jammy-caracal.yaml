@@ -21,11 +21,10 @@ applications:
       source: *openstack-origin
     channel: 24.03/edge
 
-  magpie:
-    constraints: "virt-type=virtual-machine mem=8G"
-    charm: ch:magpie
+  ubuntu:
+    charm: ch:ubuntu
     num_units: 2
-    channel: legacy/stable
+    constraints: "virt-type=virtual-machine mem=8G"
 
   grafana-agent:
     charm: ch:grafana-agent
@@ -33,14 +32,14 @@ applications:
     base: ubuntu@22.04
 
   ovn-chassis:
-    charm: ../../../ovn-chassis_ubuntu-22.04-amd64.charm
+    charm: ../../../ovn-chassis_ubuntu@22.04-amd64.charm
 
 relations:
 
   - - 'ovn-central:certificates'
     - 'vault:certificates'
 
-  - - 'magpie:juju-info'
+  - - 'ubuntu:juju-info'
     - 'ovn-chassis:juju-info'
 
   - - 'ovn-chassis:ovsdb'
@@ -50,7 +49,7 @@ relations:
     - 'vault:certificates'
 
   - - 'grafana-agent:juju-info'
-    - 'magpie:juju-info'
+    - 'ubuntu:juju-info'
 
   - - 'grafana-agent:cos-agent'
     - 'ovn-chassis:cos-agent'

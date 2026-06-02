@@ -1,15 +1,16 @@
 charm_name: ovn-central
 
 gate_bundles:
+- noble-caracal
 - jammy-caracal
 
 smoke_bundles:
+- noble-caracal
 - jammy-caracal
 
 dev_bundles:
-- jammy-bobcat
+- noble-caracal
 - jammy-caracal
-- mantic-bobcat
 
 target_deploy_status:
   ovn-central:
@@ -37,7 +38,3 @@ tests:
 - zaza.openstack.charm_tests.ovn.tests.CentralCosIntegrationTest
 - zaza.openstack.charm_tests.ovn.tests.OVNCentralDownscaleTests
 - zaza.openstack.charm_tests.ovn.tests.OVNCentralSSLExpireTests
-
-tests_options:
-  force_deploy:
-    - mantic-bobcat

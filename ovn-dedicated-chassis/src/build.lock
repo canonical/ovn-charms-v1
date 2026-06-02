@@ -13,8 +13,8 @@
       "item": "layer:basic",
       "url": "https://github.com/juju-solutions/layer-basic.git",
       "vcs": null,
-      "branch": "33526bd6aaa01ffe717a5c66ed62bc4790344ef2",
-      "commit": "33526bd6aaa01ffe717a5c66ed62bc4790344ef2"
+      "branch": "7852b1138cff6c34d483479269e7682c687798e5",
+      "commit": "7852b1138cff6c34d483479269e7682c687798e5"
     },
     {
       "type": "layer",
@@ -45,8 +45,8 @@
       "item": "layer:ovn",
       "url": "https://github.com/openstack-charmers/charm-layer-ovn.git",
       "vcs": null,
-      "branch": "ca7f446baae6058562a641d8d77a8f900ff896e0",
-      "commit": "ca7f446baae6058562a641d8d77a8f900ff896e0"
+      "branch": "b0cee1d3b1bf7e7fc4236d9b2057419d3411771b",
+      "commit": "b0cee1d3b1bf7e7fc4236d9b2057419d3411771b"
     },
     {
       "type": "layer",
@@ -61,8 +61,8 @@
       "item": "interface:tls-certificates",
       "url": "https://github.com/juju-solutions/interface-tls-certificates",
       "vcs": null,
-      "branch": "da891c403864482688ec767a964218e5857f0e49",
-      "commit": "da891c403864482688ec767a964218e5857f0e49"
+      "branch": "671eee13d9f7d02b9862f8a3a3498b37c236fd60",
+      "commit": "671eee13d9f7d02b9862f8a3a3498b37c236fd60"
     },
     {
       "type": "layer",
@@ -97,218 +97,231 @@
       "commit": "980752b11fe92160ee533f4bf20d7478ab45975d"
     },
     {
+      "type": "layer",
+      "item": "interface:cos-agent",
+      "url": "https://github.com/canonical/charm-interface-cos-agent.git",
+      "vcs": null,
+      "branch": "19658364bec84adb9dde14e22a04baa55e67895f",
+      "commit": "19658364bec84adb9dde14e22a04baa55e67895f"
+    },
+    {
+      "package": "poetry_core",
       "type": "python_module",
+      "vcs": null,
+      "version": "2.4.1"
+    },
+    {
       "package": "setuptools",
+      "type": "python_module",
       "vcs": null,
-      "version": "62.1.0"
+      "version": "81.0.0"
     },
     {
-      "type": "python_module",
-      "package": "jsonschema_specifications",
-      "vcs": null,
-      "version": "2023.12.1"
-    },
-    {
-      "type": "python_module",
-      "package": "setuptools_scm",
-      "vcs": null,
-      "version": "6.4.2"
-    },
-    {
-      "type": "python_module",
-      "package": "Jinja2",
-      "vcs": null,
-      "version": "3.1.3"
-    },
-    {
-      "type": "python_module",
-      "package": "netifaces",
-      "vcs": null,
-      "version": "0.11.0"
-    },
-    {
-      "type": "python_module",
-      "package": "charms.openstack",
-      "url": "git+https://github.com/openstack/charms.openstack.git",
-      "branch": "stable/caracal",
-      "version": "018b72d734223db274b59f524b7887d8153cdb6d",
-      "vcs": "git"
-    },
-    {
-      "type": "python_module",
-      "package": "dnspython",
-      "vcs": null,
-      "version": "2.6.1"
-    },
-    {
-      "type": "python_module",
-      "package": "referencing",
-      "vcs": null,
-      "version": "0.35.0"
-    },
-    {
-      "type": "python_module",
       "package": "calver",
+      "type": "python_module",
       "vcs": null,
-      "version": "2022.6.26"
+      "version": "2025.10.20"
     },
     {
-      "type": "python_module",
-      "package": "packaging",
-      "vcs": null,
-      "version": "24.0"
-    },
-    {
-      "type": "python_module",
-      "package": "netaddr",
-      "vcs": null,
-      "version": "0.7.19"
-    },
-    {
-      "type": "python_module",
-      "package": "sniffio",
-      "vcs": null,
-      "version": "1.3.0"
-    },
-    {
-      "type": "python_module",
-      "package": "tenacity",
-      "vcs": null,
-      "version": "8.2.3"
-    },
-    {
-      "type": "python_module",
-      "package": "PyYAML",
-      "vcs": null,
-      "version": "6.0.1"
-    },
-    {
-      "type": "python_module",
       "package": "pbr",
+      "type": "python_module",
       "vcs": null,
-      "version": "6.0.0"
+      "version": "6.1.0"
     },
     {
+      "package": "pathspec",
       "type": "python_module",
-      "package": "charmhelpers",
-      "url": "git+https://github.com/juju/charm-helpers.git",
-      "branch": "stable/caracal",
-      "version": "807f705d1d132bedb62b2eb743403e1d5867360f",
-      "vcs": "git"
+      "vcs": null,
+      "version": "1.1.1"
     },
     {
+      "package": "charms.openstack",
       "type": "python_module",
+      "url": "git+https://github.com/openstack/charms.openstack.git",
+      "vcs": "git",
+      "version": "95d99e286c4397fcf29319eddcbed823ac417edf"
+    },
+    {
       "package": "flit_scm",
+      "type": "python_module",
       "vcs": null,
       "version": "1.7.0"
     },
     {
+      "package": "PyYAML",
       "type": "python_module",
-      "package": "idna",
       "vcs": null,
-      "version": "3.7"
+      "version": "6.0.3"
     },
     {
+      "package": "tomli",
       "type": "python_module",
+      "vcs": null,
+      "version": "2.4.1"
+    },
+    {
       "package": "anyio",
+      "type": "python_module",
       "vcs": null,
       "version": "3.6.2"
     },
     {
+      "package": "charmhelpers",
       "type": "python_module",
-      "package": "pathspec",
-      "vcs": null,
-      "version": "0.12.1"
+      "url": "git+https://github.com/juju/charm-helpers.git",
+      "vcs": "git",
+      "version": "99980625aa2ad176dfb7e54dd53d2a13acbacc02"
     },
     {
+      "package": "flit_core",
       "type": "python_module",
-      "package": "MarkupSafe",
       "vcs": null,
-      "version": "2.1.5"
+      "version": "3.12.0"
     },
     {
+      "package": "six",
       "type": "python_module",
-      "package": "wheel",
       "vcs": null,
-      "version": "0.43.0"
+      "version": "1.17.0"
     },
     {
+      "package": "sniffio",
       "type": "python_module",
-      "package": "hatchling",
       "vcs": null,
-      "version": "1.24.2"
+      "version": "1.3.0"
     },
     {
+      "package": "netifaces",
       "type": "python_module",
-      "package": "charms.reactive",
       "vcs": null,
-      "version": "1.5.2"
+      "version": "0.11.0"
     },
     {
+      "package": "Jinja2",
       "type": "python_module",
-      "package": "psutil",
       "vcs": null,
-      "version": "5.9.8"
+      "version": "3.1.6"
     },
     {
-      "type": "python_module",
-      "package": "jsonschema",
-      "vcs": null,
-      "version": "4.22.0"
-    },
-    {
-      "type": "python_module",
-      "package": "pip",
-      "vcs": null,
-      "version": "22.0.4"
-    },
-    {
-      "type": "python_module",
       "package": "Cython",
+      "type": "python_module",
       "vcs": null,
       "version": "0.29.37"
     },
     {
+      "package": "setuptools_scm",
       "type": "python_module",
-      "package": "trove-classifiers",
       "vcs": null,
-      "version": "2024.4.10"
+      "version": "10.0.5"
     },
     {
+      "package": "charms.reactive",
       "type": "python_module",
+      "url": "git+https://github.com/canonical/charms.reactive.git",
+      "vcs": "git",
+      "version": "431df9aaafed0650bf5bbe66fb50b370ab88e739"
+    },
+    {
+      "package": "trove-classifiers",
+      "type": "python_module",
+      "vcs": null,
+      "version": "2026.5.22.10"
+    },
+    {
+      "package": "pip",
+      "type": "python_module",
+      "vcs": null,
+      "version": "26.1.1"
+    },
+    {
+      "package": "pluggy",
+      "type": "python_module",
+      "vcs": null,
+      "version": "1.6.0"
+    },
+    {
+      "package": "idna",
+      "type": "python_module",
+      "vcs": null,
+      "version": "3.16"
+    },
+    {
+      "package": "dnspython",
+      "type": "python_module",
+      "vcs": null,
+      "version": "2.8.0"
+    },
+    {
+      "package": "MarkupSafe",
+      "type": "python_module",
+      "vcs": null,
+      "version": "2.1.5"
+    },
+    {
+      "package": "tenacity",
+      "type": "python_module",
+      "vcs": null,
+      "version": "9.1.4"
+    },
+    {
+      "package": "hatchling",
+      "type": "python_module",
+      "vcs": null,
+      "version": "1.29.0"
+    },
+    {
+      "package": "psutil",
+      "type": "python_module",
+      "vcs": null,
+      "version": "7.2.2"
+    },
+    {
       "package": "pyaml",
+      "type": "python_module",
       "vcs": null,
       "version": "21.10.1"
     },
     {
+      "package": "wheel",
       "type": "python_module",
-      "package": "flit_core",
       "vcs": null,
-      "version": "3.9.0"
+      "version": "0.47.0"
     },
     {
+      "package": "netaddr",
       "type": "python_module",
-      "package": "attrs",
       "vcs": null,
-      "version": "23.2.0"
+      "version": "0.7.19"
     },
     {
+      "package": "packaging",
       "type": "python_module",
-      "package": "tomli",
       "vcs": null,
-      "version": "2.0.1"
+      "version": "26.2"
     },
     {
+      "package": "cosl",
       "type": "python_module",
-      "package": "pluggy",
       "vcs": null,
-      "version": "1.5.0"
+      "version": "0.0.57"
     },
     {
+      "package": "ops",
       "type": "python_module",
+      "vcs": null,
+      "version": "2.20.0"
+    },
+    {
+      "package": "jsonschema",
+      "type": "python_module",
+      "vcs": null,
+      "version": "4.22.0"
+    },
+    {
       "package": "rpds_py",
+      "type": "python_module",
       "vcs": null,
-      "version": "0.18.0"
+      "version": "0.18.1"
     }
   ]
 }
