@@ -95,6 +95,12 @@
       pinDigests: true,
     },
     {
+      matchUpdateTypes: ["minor", "patch"],
+      matchCurrentVersion: "!/^0/",
+      automerge: true,
+      automergeType: "pr",
+    },
+    {
       matchUpdateTypes: ["major"],
       dependencyDashboardApproval: true,
     },
