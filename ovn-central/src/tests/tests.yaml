@@ -9,7 +9,6 @@ smoke_bundles:
 dev_bundles:
 - jammy-yoga
 - jammy-zed
-- kinetic-zed
 
 target_deploy_status:
   ovn-central:
@@ -31,6 +30,4 @@ tests:
 - zaza.openstack.charm_tests.ovn.tests.OVNCentralDeferredRestartTest
 - zaza.openstack.charm_tests.ovn.tests.CentralCharmOperationTest
 
-tests_options:
-  force_deploy:
-    - kinetic-zed
+tests_options: {}
