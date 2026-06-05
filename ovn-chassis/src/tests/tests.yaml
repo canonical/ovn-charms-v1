@@ -10,7 +10,6 @@ smoke_bundles:
 dev_bundles:
 - jammy-zed
 - jammy-antelope
-- lunar-antelope
 
 target_deploy_status:
   magpie:
@@ -42,6 +41,4 @@ tests:
 - zaza.openstack.charm_tests.ovn.tests.ChassisCharmOperationTest
 - zaza.openstack.charm_tests.ovn.tests.DPDKTest
 
-tests_options:
-  force_deploy:
-    - lunar-antelope
+tests_options: {}
