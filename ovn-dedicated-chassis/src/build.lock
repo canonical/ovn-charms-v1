@@ -231,7 +231,7 @@
       "package": "pip",
       "type": "python_module",
       "vcs": null,
-      "version": "26.1.1"
+      "version": "26.1.2"
     },
     {
       "package": "pluggy",
