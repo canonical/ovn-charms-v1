@@ -11,9 +11,16 @@ jobs:
     strategy:
       matrix:
         charm: [central, chassis, dedicated-chassis]
+        python-version: ["3.10", "3.12"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        id: setup-py
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
@@ -21,7 +28,8 @@ jobs:
 
       - name: Run linter
         run: |
-          tox -e pep8-$(echo "${{ matrix.charm }}" | tr '-' '_')
+          tox -e pep8-$(echo "${{ matrix.charm }}" | tr '-' '_') \
+              --discover ${{ steps.setup-py.outputs.python-path }}
 
   unit:
     name: Unit Tests
@@ -35,6 +43,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Set up Python ${{ matrix.python-version }}
+        id: setup-py
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
@@ -45,7 +54,8 @@ jobs:
 
       - name: Run Unit tests
         run: |
-          tox -e py3-$(echo "${{ matrix.charm }}" | tr '-' '_')
+          tox -e py3-$(echo "${{ matrix.charm }}" | tr '-' '_') \
+              --discover ${{ steps.setup-py.outputs.python-path }}
 
   coverage:
     name: Coverage
@@ -53,9 +63,16 @@ jobs:
     strategy:
       matrix:
         charm: [central, chassis, dedicated-chassis]
+        python-version: ["3.10", "3.12"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        id: setup-py
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
@@ -63,7 +80,8 @@ jobs:
 
       - name: Run coverage
         run: |
-          tox -e cover-$(echo "${{ matrix.charm }}" | tr '-' '_')
+          tox -e cover-$(echo "${{ matrix.charm }}" | tr '-' '_') \
+              --discover ${{ steps.setup-py.outputs.python-path }}
 
   build:
     name: Build charm
