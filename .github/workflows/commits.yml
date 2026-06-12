@@ -1,0 +1,27 @@
+name: Commits
+on:
+  - pull_request
+permissions:
+  contents: read
+
+jobs:
+  cla-check:
+    name: CLA Check
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check CLA
+        uses: canonical/has-signed-canonical-cla@v2
+
+  dco-check:
+    name: DCO Check
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check DCO
+        uses: tim-actions/dco@f2279e6e62d5a7d9115b0cb8e837b777b1b02e21
+
+  signed-commits-check:
+    name: Signed Commits Check
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check signed commits
+        uses: 1Password/check-signed-commits-action@v1
