@@ -2,13 +2,8 @@ charm_name: ovn-dedicated-chassis
 
 gate_bundles:
 - jammy-antelope
-- jammy-zed
 
 smoke_bundles:
-- jammy-zed
-
-dev_bundles:
-- jammy-zed
 - jammy-antelope
 
 target_deploy_status:
