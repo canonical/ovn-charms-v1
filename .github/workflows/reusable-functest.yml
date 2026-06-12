@@ -1,0 +1,100 @@
+name: Functional Tests (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      charm:
+        required: true
+        type: string
+      zaza_pr:
+        required: false
+        type: string
+        default: ""
+      bundle:
+        required: false
+        type: string
+        default: "jammy-yoga"
+      platform:
+        required: false
+        type: string
+        default: "ubuntu@22.04"
+
+jobs:
+  functest:
+    name: Functional Tests (${{ inputs.charm }})
+    runs-on: [self-hosted, linux, X64, large, noble]
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Download built charm
+        uses: actions/download-artifact@v5
+        with:
+          name: ovn-${{ inputs.charm }}-${{ inputs.platform }}-charm
+          path: ./ovn-${{ inputs.charm }}/
+
+      - name: Install dependencies
+        run: |
+          sudo apt -yqq install tox
+          sudo snap install concierge --classic
+
+      - name: Prepare Environment for functional tests
+        run: |
+          # Use concierge to setup LXD and bootstrap juju controller
+          cat <<EOF >>/tmp/concierge.yaml
+          juju:
+            channel: 3.1/stable
+
+          providers:
+            lxd:
+              enable: true
+              bootstrap: true
+          EOF
+
+          sudo concierge prepare -c /tmp/concierge.yaml
+
+          # Create second bridged network needed by the functional tests
+          lxc network create second --type=bridge || true
+
+      - name: Install custom functional test repository
+        if: ${{ inputs.zaza_pr != '' }}
+        working-directory: ./ovn-${{ inputs.charm }}/src/
+        env:
+          ZAZA_PR: ${{ inputs.zaza_pr }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tox -e func-target --notest
+
+          gh pr view --json headRepositoryOwner,headRepository,headRefName "$ZAZA_PR" > /tmp/zaza-pr.json
+          PR_OWNER=$(cat /tmp/zaza-pr.json | jq -r '.headRepositoryOwner.login')
+          PR_REPO=$(cat /tmp/zaza-pr.json | jq -r '.headRepository.name')
+          PR_BRANCH=$(cat /tmp/zaza-pr.json | jq -r '.headRefName')
+          PR_REPO_URL=$(gh repo view --json url --jq '.url' $PR_OWNER/$PR_REPO)
+
+          source .tox/func-target/bin/activate
+          pip install --force-reinstall --no-deps git+"$PR_REPO_URL"@"$PR_BRANCH"
+
+      - name: Run functional tests for bundle ${{ inputs.bundle }}
+        working-directory: ./ovn-${{ inputs.charm }}/src/
+        run: |
+          tox -e func-target -- ${{ inputs.bundle }}
+
+      - name: Generate crash dumps
+        if: failure()
+        run: |
+          sudo snap install --classic juju-crashdump
+          models=$(juju models | grep zaza | awk '{print $1}' | tr -d '*')
+          rm -rf ./crashdumps
+          mkdir ./crashdumps
+          for model in $models; do
+            juju-crashdump -m $model -o ./crashdumps
+          done
+
+      - name: Upload artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: crashdumps-${{ inputs.charm }}-${{ inputs.bundle }}
+          path: "./crashdumps/*"
