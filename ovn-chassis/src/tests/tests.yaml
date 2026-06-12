@@ -1,15 +1,10 @@
 charm_name: ovn-chassis
 
 gate_bundles:
-- jammy-yoga
+- jammy-zed
 
 smoke_bundles:
-- jammy-yoga
-
-dev_bundles:
-- jammy-yoga
 - jammy-zed
-- kinetic-zed
 
 target_deploy_status:
   magpie:
@@ -41,6 +36,4 @@ tests:
 - zaza.openstack.charm_tests.ovn.tests.ChassisCharmOperationTest
 - zaza.openstack.charm_tests.ovn.tests.DPDKTest
 
-tests_options:
-  force_deploy:
-    - kinetic-zed
+tests_options: {}
