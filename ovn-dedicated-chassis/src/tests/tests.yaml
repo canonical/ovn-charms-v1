@@ -6,6 +6,7 @@ gate_bundles:
 
 smoke_bundles:
 - focal-yoga
+- jammy-yoga
 
 target_deploy_status:
   ovn-central:
