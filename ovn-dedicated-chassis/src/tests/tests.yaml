@@ -1,12 +1,9 @@
 charm_name: ovn-dedicated-chassis
 
 gate_bundles:
-- jammy-antelope
+- jammy-bobcat
 
 smoke_bundles:
-- jammy-antelope
-
-dev_bundles:
 - jammy-bobcat
 
 target_deploy_status:
