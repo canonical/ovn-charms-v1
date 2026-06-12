@@ -1,13 +1,9 @@
 charm_name: ovn-dedicated-chassis
 
 gate_bundles:
-- jammy-yoga
+- jammy-zed
 
 smoke_bundles:
-- jammy-yoga
-
-dev_bundles:
-- jammy-yoga
 - jammy-zed
 
 target_deploy_status:
