@@ -7,79 +7,33 @@ parts:
     reactive-charm-build-arguments:
       - --binary-wheels-from-source
       - -v
+      - --upgrade-buildvenv-core-deps
     build-packages:
-      - tox
       - git
       - python3-dev
+      - libffi-dev
+      - libssl-dev
+      - rustc-1.80
+      - cargo-1.80
+      - pkg-config
     build-snaps:
       - charm
+    override-build: |
+      ln -sf /usr/bin/rustc-1.80 /usr/bin/rustc
+      ln -sf /usr/bin/cargo-1.80 /usr/bin/cargo
     build-environment:
       - CHARM_INTERFACES_DIR: /root/project/interfaces/
       - CHARM_LAYERS_DIR: /root/project/layers/
       - MAKEFLAGS: -j$(nproc)
+      - MATURIN_NO_INSTALL_RUST: "1"
+      - CARGO_HTTP_MULTIPLEXING: "false"
 
-bases:
-  - build-on:
-      - name: ubuntu
-        channel: "22.04"
-        architectures: [amd64]
-    run-on:
-      - name: ubuntu
-        channel: "22.04"
-        architectures: [amd64]
-  - build-on:
-      - name: ubuntu
-        channel: "22.04"
-        architectures: [s390x]
-    run-on:
-      - name: ubuntu
-        channel: "22.04"
-        architectures: [s390x]
-  - build-on:
-      - name: ubuntu
-        channel: "22.04"
-        architectures: [ppc64el]
-    run-on:
-      - name: ubuntu
-        channel: "22.04"
-        architectures: [ppc64el]
-  - build-on:
-      - name: ubuntu
-        channel: "22.04"
-        architectures: [arm64]
-    run-on:
-      - name: ubuntu
-        channel: "22.04"
-        architectures: [arm64]
-  - build-on:
-      - name: ubuntu
-        channel: "20.04"
-        architectures: [amd64]
-    run-on:
-      - name: ubuntu
-        channel: "20.04"
-        architectures: [amd64]
-  - build-on:
-      - name: ubuntu
-        channel: "20.04"
-        architectures: [s390x]
-    run-on:
-      - name: ubuntu
-        channel: "20.04"
-        architectures: [s390x]
-  - build-on:
-      - name: ubuntu
-        channel: "20.04"
-        architectures: [ppc64el]
-    run-on:
-      - name: ubuntu
-        channel: "20.04"
-        architectures: [ppc64el]
-  - build-on:
-      - name: ubuntu
-        channel: "20.04"
-        architectures: [arm64]
-    run-on:
-      - name: ubuntu
-        channel: "20.04"
-        architectures: [arm64]
+platforms:
+  ubuntu@22.04:amd64:
+  ubuntu@22.04:s390x:
+  ubuntu@22.04:ppc64el:
+  ubuntu@22.04:arm64:
+  ubuntu@20.04:amd64:
+  ubuntu@20.04:s390x:
+  ubuntu@20.04:ppc64el:
+  ubuntu@20.04:arm64:
