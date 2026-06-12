@@ -137,8 +137,9 @@
     {
       "type": "python_module",
       "package": "charms.reactive",
-      "vcs": null,
-      "version": "1.5.1"
+      "vcs": "git",
+      "version": "431df9aaafed0650bf5bbe66fb50b370ab88e739",
+      "url": "git+https://github.com/canonical/charms.reactive.git"
     },
     {
       "type": "python_module",
@@ -168,7 +169,7 @@
       "type": "python_module",
       "package": "setuptools_scm",
       "vcs": null,
-      "version": "6.4.2"
+      "version": "10.0.5"
     },
     {
       "type": "python_module",
@@ -186,7 +187,7 @@
       "type": "python_module",
       "package": "setuptools",
       "vcs": null,
-      "version": "62.1.0"
+      "version": "81.0.0"
     },
     {
       "type": "python_module",
@@ -230,7 +231,7 @@
       "type": "python_module",
       "package": "pip",
       "vcs": null,
-      "version": "22.0.4"
+      "version": "26.1.2"
     },
     {
       "type": "python_module",
