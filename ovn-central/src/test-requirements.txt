@@ -1,0 +1,4 @@
+# Functional Test Requirements (let Zaza's dependencies solve all dependencies here!)
+git+https://github.com/openstack-charmers/zaza.git@stable/caracal#egg=zaza
+git+https://github.com/openstack-charmers/zaza-openstack-tests.git@447b00b360442a1102d12c749df09602699e30eb#egg=zaza.openstack
+-chttps://raw.githubusercontent.com/openstack-charmers/zaza-openstack-tests/447b00b360442a1102d12c749df09602699e30eb/constraints/constraints-noble.txt
