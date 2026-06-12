@@ -1,0 +1,180 @@
+name: Tests
+on:
+  push:
+    branches: [stable/23.09]
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        charm: [central, chassis, dedicated-chassis]
+        python-version: ["3.10"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        id: setup-py
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt install -y tox
+
+      - name: Run linter
+        run: |
+          tox -e pep8-$(echo "${{ matrix.charm }}" | tr '-' '_') \
+              --discover ${{ steps.setup-py.outputs.python-path }}
+
+  unit:
+    name: Unit Tests
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        charm: [central, chassis, dedicated-chassis]
+        python-version: ["3.10"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        id: setup-py
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt install -y tox
+
+      - name: Run Unit tests
+        run: |
+          tox -e py3-$(echo "${{ matrix.charm }}" | tr '-' '_') \
+              --discover ${{ steps.setup-py.outputs.python-path }}
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        charm: [central, chassis, dedicated-chassis]
+        python-version: ["3.10"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        id: setup-py
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt install -y tox
+
+      - name: Run coverage
+        run: |
+          tox -e cover-$(echo "${{ matrix.charm }}" | tr '-' '_') \
+              --discover ${{ steps.setup-py.outputs.python-path }}
+
+  build:
+    name: Build charm
+    needs:
+      - lint
+      - unit
+      - coverage
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        charm: [central, chassis, dedicated-chassis]
+        platform: ["ubuntu@22.04"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: |
+          sudo apt install -y tox
+          sudo snap install charmcraft --channel 3.x/stable --classic
+          sudo snap install lxd --channel 5.21/stable
+          sudo snap set lxd daemon.group=adm
+          sudo lxd init --auto
+
+      - name: Clear FORWARD firewall rules
+        run: |
+          # Docker can inject rules causing firewall conflicts
+          sudo iptables -P FORWARD ACCEPT  || true
+          sudo ip6tables -P FORWARD ACCEPT || true
+          sudo iptables -F FORWARD  || true
+          sudo ip6tables -F FORWARD || true
+
+      - name: Build charm
+        working-directory: ./ovn-${{ matrix.charm }}
+        run: |
+          ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
+          charmcraft clean
+          charmcraft -v pack --platform ${{ matrix.platform }}:$ARCH
+
+      - name: Store charm as artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: ovn-${{ matrix.charm }}-${{ matrix.platform }}-charm
+          path: ./ovn-${{ matrix.charm }}/*.charm
+          retention-days: 7
+
+  parse_tags:
+    name: Parse tags in PR commits
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+    outputs:
+      zaza_pr: ${{ steps.find-zaza-pr.outputs.zaza_pr }}
+    steps:
+      - name: Get PR commits
+        id: 'get-pr-commits'
+        uses: tim-actions/get-pr-commits@v1.3.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Find requested functional test PR
+        id: 'find-zaza-pr'
+        run: |
+          COMMIT_DATA=$(
+          cat <<'EOF'
+          ${{ steps.get-pr-commits.outputs.commits }}
+          EOF
+          )
+
+          ZAZA_TAG="Func-test-pr: "
+          FUNC_PR=$(jq -r '.[].commit.message' <<< "$COMMIT_DATA" | grep -i "^${ZAZA_TAG}" | tail -1)
+          PR_URL=$(echo $FUNC_PR | sed -e "s/^$ZAZA_TAG//I")
+
+          echo "zaza_pr=$PR_URL" >> "$GITHUB_OUTPUT"
+
+  functest:
+    name: Functional Tests
+    needs:
+      - build
+      - parse_tags
+    strategy:
+      fail-fast: false
+      matrix:
+        charm: [central, chassis, dedicated-chassis]
+        bundle: ["jammy-bobcat"]
+        include:
+          - bundle: "jammy-bobcat"
+            platform: "ubuntu@22.04"
+    uses: ./.github/workflows/reusable-functest.yml
+    with:
+      charm: ${{ matrix.charm }}
+      bundle: ${{ matrix.bundle }}
+      platform: ${{ matrix.platform }}
+      zaza_pr: ${{ needs.parse_tags.outputs.zaza_pr }}
+    secrets: inherit
