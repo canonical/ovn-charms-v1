@@ -28,7 +28,7 @@ applications:
     channel: legacy/stable
 
   ovn-chassis:
-    charm: ../../../ovn-chassis_ubuntu-22.04-amd64.charm
+    charm: ../../../ovn-chassis_ubuntu@22.04-amd64.charm
 
 relations:
 
