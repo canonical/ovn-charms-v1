@@ -64,14 +64,20 @@ ample time for the command to finish.
 How to test
 -----------
 
-Coverage, lint and unit tests can be executed by changing to each individual
-charm sub-directory and as an example you can execute the `tox` command to
-run the pre-configured list of test environments.
+Coverage, lint and unit tests can be executed from the top-level directory of
+the monorepo using the consolidated `tox` configuration. For example, you can
+run:
+
+.. code-block:: none
+
+   tox -e pep8-central
+   tox -e py3-central
+   tox -e cover-central
 
 The functional tests can be executed by changing to the src sub-directory of
 each individual charm sub-directory and as an example you can execute the
-command `tox -e func-target -- noble-caracal` which will run functional tests
-using a Ubuntu noble base and no overlay PPA.
+command `tox -e func-target -- jammy-antelope` which will run functional tests
+using a Ubuntu jammy base and no overlay PPA.
 
 After a test run you must remove any juju models that have the 'zaza-' prefix
 in their name with the `juju destroy-model` command, otherwise the system
@@ -80,9 +86,8 @@ resources will be depleted for subsequent runs.
 Dependency management
 ---------------------
 
-Python dependencies for coverage, lint and unit tests are managed in pip
-requirement files named test-requirements.txt in each individual charm
-sub-directory.
+Python dependencies for coverage, lint and unit tests are managed in the
+top-level pip requirement file named `test-requirements.txt`.
 
 Python dependencies for the built charm artefact are managed by a file named
 build.lock located in the src sub-directory of each individual charm
