@@ -9,22 +9,22 @@ jobs:
     if: |
       contains(github.event.comment.body, '/oc') ||
       contains(github.event.comment.body, '/opencode')
-    runs-on: ubuntu-24.04
-    permissions:
-      id-token: write
-      contents: write
-      pull-requests: write
-    steps:
-       - name: Checkout repository
-         uses: actions/checkout@v6
-         with:
-           persist-credentials: false
+  runs-on: ubuntu-24.04
+  permissions:
+    id-token: write
+    contents: write
+    pull-requests: write
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v6
+      with:
+        persist-credentials: false
 
-       - name: Run OpenCode
-        uses: anomalyco/opencode/github@latest
-        env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        with:
-          model: z-ai/glm-5.1
-          share: true
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Run OpenCode
+      uses: anomalyco/opencode/github@latest
+      env:
+        OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      with:
+        model: z-ai/glm-5.1
+        share: true
+        github_token: ${{ secrets.GITHUB_TOKEN }}
