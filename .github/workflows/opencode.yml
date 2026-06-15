@@ -29,4 +29,4 @@ jobs:
         with:
           model: z-ai/glm-5.1
           share: true
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          use_github_token: true
