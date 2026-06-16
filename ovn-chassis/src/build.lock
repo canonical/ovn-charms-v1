@@ -277,7 +277,7 @@
       "package": "charmhelpers",
       "url": "git+https://github.com/juju/charm-helpers.git",
       "branch": "stable/bobcat",
-      "version": "2095527e33e6e905846e33afd1a957986da18800",
+      "version": "96133ca1c54cd457ea8ec9ffa7b2b921861a84aa",
       "vcs": "git"
     },
     {
