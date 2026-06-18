@@ -22,6 +22,7 @@ applications:
     channel: 23.03/edge
 
   ovn-dedicated-chassis:
+    constraints: "virt-type=virtual-machine"
     charm: ../../../ovn-dedicated-chassis_ubuntu@22.04-amd64.charm
     num_units: 2
     options:
