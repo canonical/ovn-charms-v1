@@ -22,6 +22,7 @@ applications:
     channel: latest/edge
 
   ubuntu:
+    constraints: "virt-type=virtual-machine mem=8G"
     charm: ch:ubuntu
     num_units: 2
     channel: latest/edge
