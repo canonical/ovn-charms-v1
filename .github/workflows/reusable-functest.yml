@@ -6,7 +6,8 @@ on:
       charm:
         required: true
         type: string
-      zaza_pr:
+      func_test_ref:
+        description: "Git ref (SHA) of an ovn-charms-v1 PR whose subtree updates should be tested; empty uses the commit under test."
         required: false
         type: string
         default: ""
@@ -58,28 +59,13 @@ jobs:
           # Create second bridged network needed by the functional tests
           lxc network create second --type=bridge || true
 
-      - name: Install custom functional test repository
-        if: ${{ inputs.zaza_pr != '' }}
-        env:
-          CHARM: ${{ inputs.charm }}
-          ZAZA_PR: ${{ inputs.zaza_pr }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          CHARM_FACTOR=$(echo "$CHARM" | tr '-' '_')
-          tox -e "func-target-${CHARM_FACTOR}" --notest
-
-          gh pr view --json headRepositoryOwner,headRepository,headRefName "$ZAZA_PR" > /tmp/zaza-pr.json
-          PR_OWNER=$(cat /tmp/zaza-pr.json | jq -r '.headRepositoryOwner.login')
-          PR_REPO=$(cat /tmp/zaza-pr.json | jq -r '.headRepository.name')
-          PR_BRANCH=$(cat /tmp/zaza-pr.json | jq -r '.headRefName')
-          PR_REPO_URL=$(gh repo view --json url --jq '.url' $PR_OWNER/$PR_REPO)
-
-          source ".tox/func-target-${CHARM_FACTOR}/bin/activate"
-          pip install --force-reinstall --no-deps git+"$PR_REPO_URL"@"$PR_BRANCH"
-
       - name: Run functional tests for bundle ${{ inputs.bundle }}
         env:
           CHARM: ${{ inputs.charm }}
+          # When a Func-test-pr: tag targets an ovn-charms-v1 PR, test
+          # the subtree content from that PR's head SHA; otherwise test
+          # the subtree content at the exact commit under test.
+          OVN_CHARMS_REF: ${{ inputs.func_test_ref || github.sha }}
         run: |
           CHARM_FACTOR=$(echo "$CHARM" | tr '-' '_')
           tox -e "func-target-${CHARM_FACTOR}" -- ${{ inputs.bundle }}
