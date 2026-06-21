@@ -334,6 +334,23 @@ class ChassisCharmOperationTest(BaseCharmOperationTest):
 
     def test_enable_hardware_offload(self):
         """Confirm that chassis can configure OVS hardware offload."""
+        # The ``enable-hardware-offload`` configuration option is not
+        # present on older charm branches.  Retrieve the application
+        # config and skip the test when the option is missing so that
+        # the newer test code can run unchanged against legacy charms.
+        try:
+            app_config = zaza.model.get_application_config(
+                self.application_name)
+        except Exception:
+            self.skipTest(
+                'Unable to retrieve application config for "{}"; '
+                'skipping hardware offload test.'
+                .format(self.application_name))
+        if 'enable-hardware-offload' not in app_config:
+            self.skipTest(
+                'The "enable-hardware-offload" configuration option '
+                'is not available on the charm under test; skipping '
+                'hardware offload test.')
         with self.config_change(
                 {'enable-hardware-offload': 'false'},
                 {'enable-hardware-offload': 'true'}):
