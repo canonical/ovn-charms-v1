@@ -95,3 +95,35 @@ requirement file named `func-test-requirements.txt`.
 Python dependencies for the built charm artefact are managed by a file named
 build.lock located in the src sub-directory of each individual charm
 sub-directory.
+
+Test framework subtrees
+-----------------------
+
+The ``tests/lib`` directory hosts git subtrees of the shared functional
+test framework and library code that this monorepo formerly consumed
+directly from upstream:
+
+* ``tests/lib/zaza``
+
+  * Upstream: https://github.com/openstack-charmers/zaza.git
+  * Tracked branch: ``master``
+
+* ``tests/lib/zaza-openstack-tests``
+
+  * Upstream: https://github.com/openstack-charmers/zaza-openstack-tests.git
+  * Tracked branch: ``master``
+
+The subtrees were added with full git history (``git subtree add``
+without ``--squash``) so that upstream history remains reachable in this
+repository's object database and the subtrees can be synced with
+upstream at a later date if so is desired.
+
+When making local changes to code under ``tests/lib``, keep them in
+clean, self-contained commits that touch only the subtree in question
+and do not interleave with changes to the rest of the monorepo.  This
+discipline preserves the ability to later ``git subtree pull`` (or
+``push``) against upstream, since subtree operations rely on the
+subtree history being a clean continuation of the imported upstream
+line.  Mixed commits make such syncs produce conflicts that are hard to
+disentangle and effectively forfeit the main benefit of carrying the
+subtree locally.
