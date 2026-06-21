@@ -60,12 +60,13 @@ jobs:
 
       - name: Install custom functional test repository
         if: ${{ inputs.zaza_pr != '' }}
-        working-directory: ./ovn-${{ inputs.charm }}/src/
         env:
+          CHARM: ${{ inputs.charm }}
           ZAZA_PR: ${{ inputs.zaza_pr }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tox -e func-target --notest
+          CHARM_FACTOR=$(echo "$CHARM" | tr '-' '_')
+          tox -e "func-target-${CHARM_FACTOR}" --notest
 
           gh pr view --json headRepositoryOwner,headRepository,headRefName "$ZAZA_PR" > /tmp/zaza-pr.json
           PR_OWNER=$(cat /tmp/zaza-pr.json | jq -r '.headRepositoryOwner.login')
@@ -73,13 +74,15 @@ jobs:
           PR_BRANCH=$(cat /tmp/zaza-pr.json | jq -r '.headRefName')
           PR_REPO_URL=$(gh repo view --json url --jq '.url' $PR_OWNER/$PR_REPO)
 
-          source .tox/func-target/bin/activate
+          source ".tox/func-target-${CHARM_FACTOR}/bin/activate"
           pip install --force-reinstall --no-deps git+"$PR_REPO_URL"@"$PR_BRANCH"
 
       - name: Run functional tests for bundle ${{ inputs.bundle }}
-        working-directory: ./ovn-${{ inputs.charm }}/src/
+        env:
+          CHARM: ${{ inputs.charm }}
         run: |
-          tox -e func-target -- ${{ inputs.bundle }}
+          CHARM_FACTOR=$(echo "$CHARM" | tr '-' '_')
+          tox -e "func-target-${CHARM_FACTOR}" -- ${{ inputs.bundle }}
 
       - name: Generate crash dumps
         if: failure()
