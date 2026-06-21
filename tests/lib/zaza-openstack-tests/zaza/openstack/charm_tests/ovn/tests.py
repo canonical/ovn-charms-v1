@@ -194,6 +194,18 @@ class BaseCharmOperationTest(test_utils.BaseCharmTest):
 
     def test_prometheus_exporter_reachable(self):
         """Ensure that the OVS/OVN exporter responds to requests."""
+        # The exporter is only expected to be running when the charm
+        # under test is related to grafana-agent over the ``cos-agent``
+        # relation.  Older charm branches neither declare the
+        # ``cos-agent`` endpoint nor deploy grafana-agent, so the test
+        # is skipped in their absence.
+        if not zaza.model.get_relation_id(
+                self.application_name, 'grafana-agent',
+                remote_interface_name='cos-agent'):
+            self.skipTest(
+                'The "cos-agent" relation to grafana-agent is not '
+                'established; the prometheus exporter is not expected '
+                'to be available on the charm under test.')
         for unit in zaza.model.get_units(self.application_name):
             ip = zaza.model.get_unit_public_address(unit)
             response = requests.get(
