@@ -74,10 +74,10 @@ run:
    tox -e py3-central
    tox -e cover-central
 
-The functional tests can be executed by changing to the src sub-directory of
-each individual charm sub-directory and as an example you can execute the
-command `tox -e func-target -- jammy-bobcat` which will run functional tests
-using a Ubuntu jammy base and no overlay PPA.
+The functional tests can be executed from the top-level directory of the
+monorepo using the consolidated `tox` configuration. For example, you can
+execute the command `tox -e func-target-central -- noble-caracal` which will
+run functional tests using a Ubuntu noble base and no overlay PPA.
 
 After a test run you must remove any juju models that have the 'zaza-' prefix
 in their name with the `juju destroy-model` command, otherwise the system
@@ -88,6 +88,9 @@ Dependency management
 
 Python dependencies for coverage, lint and unit tests are managed in the
 top-level pip requirement file named `test-requirements.txt`.
+
+Python dependencies for the functional tests are managed in the top-level pip
+requirement file named `func-test-requirements.txt`.
 
 Python dependencies for the built charm artefact are managed by a file named
 build.lock located in the src sub-directory of each individual charm
