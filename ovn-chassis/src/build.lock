@@ -236,7 +236,7 @@
       "package": "setuptools_scm",
       "type": "python_module",
       "vcs": null,
-      "version": "9.2.2"
+      "version": "10.1.2"
     },
     {
       "package": "charms.reactive",
