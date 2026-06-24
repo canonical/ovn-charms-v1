@@ -270,7 +270,7 @@
       "type": "python_module",
       "package": "setuptools_scm",
       "vcs": null,
-      "version": "10.0.5"
+      "version": "10.1.2"
     },
     {
       "type": "python_module",
