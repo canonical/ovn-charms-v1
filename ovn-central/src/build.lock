@@ -276,6 +276,18 @@
       "package": "dnspython",
       "vcs": null,
       "version": "2.4.2"
+    },
+    {
+      "type": "python_module",
+      "package": "typing_extensions",
+      "vcs": null,
+      "version": "4.15.0"
+    },
+    {
+      "type": "python_module",
+      "package": "vcs-versioning",
+      "vcs": null,
+      "version": "2.1.2"
     }
   ]
 }
