@@ -1,0 +1,89 @@
+name: Functional Tests (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      charm:
+        required: true
+        type: string
+      func_test_ref:
+        description: "Git ref (SHA) of an ovn-charms-v1 PR whose subtree updates should be tested; empty uses the commit under test."
+        required: false
+        type: string
+        default: ""
+      bundle:
+        required: false
+        type: string
+        default: "jammy-bobcat"
+      platform:
+        required: false
+        type: string
+        default: "ubuntu@22.04"
+
+jobs:
+  functest:
+    name: Functional Tests (${{ inputs.charm }})
+    runs-on: [self-hosted, linux, X64, large, noble]
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Download built charm
+        uses: actions/download-artifact@v5
+        with:
+          name: ovn-${{ inputs.charm }}-${{ inputs.platform }}-charm
+          path: ./ovn-${{ inputs.charm }}/
+
+      - name: Install dependencies
+        run: |
+          sudo apt -yqq install tox
+          sudo snap install concierge --classic
+
+      - name: Prepare Environment for functional tests
+        run: |
+          # Use concierge to setup LXD and bootstrap juju controller
+          cat <<EOF >>/tmp/concierge.yaml
+          juju:
+            channel: 3.6/stable
+
+          providers:
+            lxd:
+              enable: true
+              bootstrap: true
+          EOF
+
+          sudo concierge prepare -c /tmp/concierge.yaml
+
+          # Create second bridged network needed by the functional tests
+          lxc network create second --type=bridge || true
+
+      - name: Run functional tests for bundle ${{ inputs.bundle }}
+        env:
+          CHARM: ${{ inputs.charm }}
+          # When a Func-test-pr: tag targets an ovn-charms-v1 PR, test
+          # the subtree content from that PR's head SHA; otherwise test
+          # the subtree content at the exact commit under test.
+          OVN_CHARMS_REF: ${{ inputs.func_test_ref || github.sha }}
+        run: |
+          CHARM_FACTOR=$(echo "$CHARM" | tr '-' '_')
+          tox -e "func-target-${CHARM_FACTOR}" -- ${{ inputs.bundle }}
+
+      - name: Generate crash dumps
+        if: failure()
+        run: |
+          sudo snap install --classic juju-crashdump
+          models=$(juju models | grep zaza | awk '{print $1}' | tr -d '*')
+          rm -rf ./crashdumps
+          mkdir ./crashdumps
+          for model in $models; do
+            juju-crashdump -m $model -o ./crashdumps
+          done
+
+      - name: Upload artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: crashdumps-${{ inputs.charm }}-${{ inputs.bundle }}
+          path: "./crashdumps/*"

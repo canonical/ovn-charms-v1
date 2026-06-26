@@ -45,8 +45,8 @@
       "item": "layer:ovn",
       "url": "https://github.com/openstack-charmers/charm-layer-ovn.git",
       "vcs": null,
-      "branch": "b0cee1d3b1bf7e7fc4236d9b2057419d3411771b",
-      "commit": "b0cee1d3b1bf7e7fc4236d9b2057419d3411771b"
+      "branch": "6a267aadd54c8b1d6833e7414133cc440806d95d",
+      "commit": "6a267aadd54c8b1d6833e7414133cc440806d95d"
     },
     {
       "type": "layer",
@@ -226,7 +226,7 @@
       "type": "python_module",
       "package": "pip",
       "vcs": null,
-      "version": "22.0.4"
+      "version": "26.1.2"
     },
     {
       "type": "python_module",
@@ -270,14 +270,14 @@
       "type": "python_module",
       "package": "setuptools_scm",
       "vcs": null,
-      "version": "6.4.2"
+      "version": "10.1.2"
     },
     {
       "type": "python_module",
       "package": "charmhelpers",
       "url": "git+https://github.com/juju/charm-helpers.git",
       "branch": "stable/bobcat",
-      "version": "2095527e33e6e905846e33afd1a957986da18800",
+      "version": "96133ca1c54cd457ea8ec9ffa7b2b921861a84aa",
       "vcs": "git"
     },
     {
@@ -289,8 +289,9 @@
     {
       "type": "python_module",
       "package": "charms.reactive",
-      "vcs": null,
-      "version": "1.5.2"
+      "url": "git+https://github.com/canonical/charms.reactive.git",
+      "vcs": "git",
+      "version": "431df9aaafed0650bf5bbe66fb50b370ab88e739"
     },
     {
       "type": "python_module",
@@ -302,13 +303,25 @@
       "type": "python_module",
       "package": "setuptools",
       "vcs": null,
-      "version": "62.1.0"
+      "version": "81.0.0"
     },
     {
       "type": "python_module",
       "package": "jsonschema_specifications",
       "vcs": null,
       "version": "2023.11.1"
+    },
+    {
+      "type": "python_module",
+      "package": "typing_extensions",
+      "vcs": null,
+      "version": "4.15.0"
+    },
+    {
+      "type": "python_module",
+      "package": "vcs-versioning",
+      "vcs": null,
+      "version": "2.1.2"
     }
   ]
 }

@@ -1,0 +1,226 @@
+name: Tests
+on:
+  push:
+    branches: [stable/23.09]
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        charm: [central, chassis, dedicated-chassis]
+        python-version: ["3.10"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        id: setup-py
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt install -y tox
+
+      - name: Run linter
+        run: |
+          tox -e pep8-$(echo "${{ matrix.charm }}" | tr '-' '_') \
+              --discover ${{ steps.setup-py.outputs.python-path }}
+
+  unit:
+    name: Unit Tests
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        charm: [central, chassis, dedicated-chassis]
+        python-version: ["3.10"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        id: setup-py
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt install -y tox
+
+      - name: Run Unit tests
+        run: |
+          tox -e py3-$(echo "${{ matrix.charm }}" | tr '-' '_') \
+              --discover ${{ steps.setup-py.outputs.python-path }}
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        charm: [central, chassis, dedicated-chassis]
+        python-version: ["3.10"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        id: setup-py
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt install -y tox
+
+      - name: Run coverage
+        run: |
+          tox -e cover-$(echo "${{ matrix.charm }}" | tr '-' '_') \
+              --discover ${{ steps.setup-py.outputs.python-path }}
+
+  build:
+    name: Build charm
+    needs:
+      - lint
+      - unit
+      - coverage
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        charm: [central, chassis, dedicated-chassis]
+        platform: ["ubuntu@22.04"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: |
+          sudo apt install -y tox
+          sudo snap install charmcraft --channel 3.x/stable --classic
+          sudo snap install lxd --channel 5.21/stable
+          sudo snap set lxd daemon.group=adm
+          sudo lxd init --auto
+
+      - name: Clear FORWARD firewall rules
+        run: |
+          # Docker can inject rules causing firewall conflicts
+          sudo iptables -P FORWARD ACCEPT  || true
+          sudo ip6tables -P FORWARD ACCEPT || true
+          sudo iptables -F FORWARD  || true
+          sudo ip6tables -F FORWARD || true
+
+      - name: Build charm
+        working-directory: ./ovn-${{ matrix.charm }}
+        run: |
+          ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
+          charmcraft clean
+          charmcraft -v pack --platform ${{ matrix.platform }}:$ARCH
+
+      - name: Store charm as artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: ovn-${{ matrix.charm }}-${{ matrix.platform }}-charm
+          path: ./ovn-${{ matrix.charm }}/*.charm
+          retention-days: 7
+
+  parse_tags:
+    name: Parse tags in PR commits
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+      contents: read
+    outputs:
+      func_test_ref: ${{ steps.find-func-test-ref.outputs.func_test_ref }}
+    steps:
+      - name: Get PR commits
+        id: 'get-pr-commits'
+        uses: tim-actions/get-pr-commits@v1.3.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Find requested functional test PR
+        id: 'find-func-test-ref'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMMIT_DATA=$(
+          cat <<'EOF'
+          ${{ steps.get-pr-commits.outputs.commits }}
+          EOF
+          )
+
+          ZAZA_TAG="Func-test-pr: "
+          FUNC_PR=$(jq -r '.[].commit.message' <<< "$COMMIT_DATA" | grep -i "^${ZAZA_TAG}" | tail -1)
+          PR_URL=$(echo $FUNC_PR | sed -e "s/^$ZAZA_TAG//I")
+
+          FUNC_TEST_REF=""
+          if [ -n "$PR_URL" ]; then
+            # Resolve the PR URL to a head SHA.  The PR's subtree
+            # updates (e.g. a ``git subtree pull`` or local edits
+            # under tests/lib) will be installed during the
+            # functional test run via OVN_CHARMS_REF, replacing the
+            # default of testing the subtree content at the commit
+            # under test.
+            #
+            # The resolved SHA is later fetched by pip from
+            # canonical/ovn-charms-v1 only (see
+            # func-test-requirements.txt), so it must be reachable
+            # from that repository.  Enforce that the tagged PR's
+            # base is this repository; a SHA from a PR against a
+            # different repository would not be fetchable and would
+            # surface as a cryptic pip/git error instead.
+            #
+            # The base owner/repo is parsed directly from the PR
+            # URL (e.g. ``https://github.com/canonical/ovn-charms-v1/pull/42``)
+            # rather than from ``gh pr view`` JSON, because ``gh``
+            # does not expose a ``baseRepository`` field.
+            #
+            # Fork-based PRs against canonical/ovn-charms-v1 are
+            # fine: GitHub retains PR head SHAs in the base repo
+            # under refs/pull/<N>/head (this is why
+            # `gh pr checkout <N>` works without adding the
+            # contributor's fork as a remote).  Example: PR #42
+            # opened from contributor/ovn-charms-v1:feature-branch
+            # resolves to a SHA that
+            # `git fetch https://github.com/canonical/ovn-charms-v1.git <SHA>`
+            # can retrieve, even though the commit object
+            # originated in the fork.
+            BASE_REPO=$(echo "$PR_URL" | sed -E 's#https?://github\.com/([^/]+/[^/]+)/pull/.*#\1#')
+            if [ "$BASE_REPO" != "canonical/ovn-charms-v1" ]; then
+              echo "::error::Func-test-pr tag must reference a PR against canonical/ovn-charms-v1, but '$PR_URL' is against '$BASE_REPO'." >&2
+              exit 1
+            fi
+            gh pr view "$PR_URL" \
+              --json headRefOid \
+              > /tmp/func-test-pr.json
+            FUNC_TEST_REF=$(jq -r '.headRefOid' /tmp/func-test-pr.json)
+          fi
+
+          echo "func_test_ref=$FUNC_TEST_REF" >> "$GITHUB_OUTPUT"
+
+  functest:
+    name: Functional Tests
+    needs:
+      - build
+      - parse_tags
+    strategy:
+      fail-fast: false
+      matrix:
+        charm: [central, chassis, dedicated-chassis]
+        bundle: ["jammy-bobcat"]
+        include:
+          - bundle: "jammy-bobcat"
+            platform: "ubuntu@22.04"
+    uses: ./.github/workflows/reusable-functest.yml
+    with:
+      charm: ${{ matrix.charm }}
+      bundle: ${{ matrix.bundle }}
+      platform: ${{ matrix.platform }}
+      func_test_ref: ${{ needs.parse_tags.outputs.func_test_ref }}
+    secrets: inherit
