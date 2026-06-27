@@ -1,0 +1,29 @@
+# Functional Test Requirements (let Zaza's dependencies solve all dependencies here!)
+#
+# zaza and zaza-openstack-tests are carried as git subtrees under
+# tests/lib in this repository (see AGENT.rst, "Test framework
+# subtrees").  They are installed via pip's git subdirectory feature
+# against this monorepo so the subtree content under test is the exact
+# content pinned by the CI checkout.
+#
+# OVN_CHARMS_REF selects which revision of the monorepo pip clones to
+# build the subtree packages from.  It must be set in the environment
+# when pip consumes this file; tox provides a default of "main" via
+# setenv in the func-target testenv, and CI overrides it to the exact
+# SHA under test.
+#
+# The revision in OVN_CHARMS_REF must be reachable from the
+# canonical/ovn-charms-v1 repository (the URL below), because pip
+# fetches it from that URL only.  Any PR opened against
+# canonical/ovn-charms-v1 satisfies this: GitHub retains PR head SHAs
+# in the base repo under refs/pull/<N>/head (this is why
+# `gh pr checkout <N>` works without adding the contributor's fork as
+# a remote).  Example: PR #42 opened from
+# contributor/ovn-charms-v1:feature-branch resolves to a SHA that
+# `git fetch https://github.com/canonical/ovn-charms-v1.git <SHA>` can
+# retrieve, even though the commit object originated in the fork.
+# PRs against other repositories are not supported; the CI parse_tags
+# job validates the PR's base and fails loudly on mismatch (see the
+# companion workflow commit).
+git+https://github.com/canonical/ovn-charms-v1.git@${OVN_CHARMS_REF}#subdirectory=tests/lib/zaza&egg=zaza
+git+https://github.com/canonical/ovn-charms-v1.git@${OVN_CHARMS_REF}#subdirectory=tests/lib/zaza-openstack-tests&egg=zaza.openstack

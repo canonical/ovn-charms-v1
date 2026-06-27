@@ -212,7 +212,7 @@
       "package": "setuptools_scm",
       "type": "python_module",
       "vcs": null,
-      "version": "10.0.5"
+      "version": "10.1.2"
     },
     {
       "package": "charms.reactive",
@@ -322,6 +322,126 @@
       "type": "python_module",
       "vcs": null,
       "version": "0.18.1"
+    },
+    {
+      "package": "annotated-types",
+      "type": "python_module",
+      "vcs": null,
+      "version": "0.7.0"
+    },
+    {
+      "package": "attrs",
+      "type": "python_module",
+      "vcs": null,
+      "version": "26.1.0"
+    },
+    {
+      "package": "certifi",
+      "type": "python_module",
+      "vcs": null,
+      "version": "2026.6.17"
+    },
+    {
+      "package": "h11",
+      "type": "python_module",
+      "vcs": null,
+      "version": "0.16.0"
+    },
+    {
+      "package": "h2",
+      "type": "python_module",
+      "vcs": null,
+      "version": "4.3.0"
+    },
+    {
+      "package": "hpack",
+      "type": "python_module",
+      "vcs": null,
+      "version": "4.1.0"
+    },
+    {
+      "package": "httpcore",
+      "type": "python_module",
+      "vcs": null,
+      "version": "1.0.9"
+    },
+    {
+      "package": "httpx",
+      "type": "python_module",
+      "vcs": null,
+      "version": "0.28.1"
+    },
+    {
+      "package": "hyperframe",
+      "type": "python_module",
+      "vcs": null,
+      "version": "6.1.0"
+    },
+    {
+      "package": "jsonschema-specifications",
+      "type": "python_module",
+      "vcs": null,
+      "version": "2025.9.1"
+    },
+    {
+      "package": "lightkube",
+      "type": "python_module",
+      "vcs": null,
+      "version": "0.19.1"
+    },
+    {
+      "package": "lightkube-models",
+      "type": "python_module",
+      "vcs": null,
+      "version": "1.35.0.8"
+    },
+    {
+      "package": "looseversion",
+      "type": "python_module",
+      "vcs": null,
+      "version": "1.3.0"
+    },
+    {
+      "package": "pydantic",
+      "type": "python_module",
+      "vcs": null,
+      "version": "2.13.4"
+    },
+    {
+      "package": "pydantic_core",
+      "type": "python_module",
+      "vcs": null,
+      "version": "2.46.4"
+    },
+    {
+      "package": "referencing",
+      "type": "python_module",
+      "vcs": null,
+      "version": "0.37.0"
+    },
+    {
+      "package": "typing-inspection",
+      "type": "python_module",
+      "vcs": null,
+      "version": "0.4.2"
+    },
+    {
+      "package": "typing_extensions",
+      "type": "python_module",
+      "vcs": null,
+      "version": "4.15.0"
+    },
+    {
+      "package": "vcs-versioning",
+      "type": "python_module",
+      "vcs": null,
+      "version": "2.1.2"
+    },
+    {
+      "package": "websocket-client",
+      "type": "python_module",
+      "vcs": null,
+      "version": "1.9.0"
     }
   ]
 }
