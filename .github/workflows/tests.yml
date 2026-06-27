@@ -135,8 +135,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
+      contents: read
     outputs:
-      zaza_pr: ${{ steps.find-zaza-pr.outputs.zaza_pr }}
+      func_test_ref: ${{ steps.find-func-test-ref.outputs.func_test_ref }}
     steps:
       - name: Get PR commits
         id: 'get-pr-commits'
@@ -145,7 +146,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Find requested functional test PR
-        id: 'find-zaza-pr'
+        id: 'find-func-test-ref'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           COMMIT_DATA=$(
           cat <<'EOF'
@@ -157,7 +160,50 @@ jobs:
           FUNC_PR=$(jq -r '.[].commit.message' <<< "$COMMIT_DATA" | grep -i "^${ZAZA_TAG}" | tail -1)
           PR_URL=$(echo $FUNC_PR | sed -e "s/^$ZAZA_TAG//I")
 
-          echo "zaza_pr=$PR_URL" >> "$GITHUB_OUTPUT"
+          FUNC_TEST_REF=""
+          if [ -n "$PR_URL" ]; then
+            # Resolve the PR URL to a head SHA.  The PR's subtree
+            # updates (e.g. a ``git subtree pull`` or local edits
+            # under tests/lib) will be installed during the
+            # functional test run via OVN_CHARMS_REF, replacing the
+            # default of testing the subtree content at the commit
+            # under test.
+            #
+            # The resolved SHA is later fetched by pip from
+            # canonical/ovn-charms-v1 only (see
+            # func-test-requirements.txt), so it must be reachable
+            # from that repository.  Enforce that the tagged PR's
+            # base is this repository; a SHA from a PR against a
+            # different repository would not be fetchable and would
+            # surface as a cryptic pip/git error instead.
+            #
+            # The base owner/repo is parsed directly from the PR
+            # URL (e.g. ``https://github.com/canonical/ovn-charms-v1/pull/42``)
+            # rather than from ``gh pr view`` JSON, because ``gh``
+            # does not expose a ``baseRepository`` field.
+            #
+            # Fork-based PRs against canonical/ovn-charms-v1 are
+            # fine: GitHub retains PR head SHAs in the base repo
+            # under refs/pull/<N>/head (this is why
+            # `gh pr checkout <N>` works without adding the
+            # contributor's fork as a remote).  Example: PR #42
+            # opened from contributor/ovn-charms-v1:feature-branch
+            # resolves to a SHA that
+            # `git fetch https://github.com/canonical/ovn-charms-v1.git <SHA>`
+            # can retrieve, even though the commit object
+            # originated in the fork.
+            BASE_REPO=$(echo "$PR_URL" | sed -E 's#https?://github\.com/([^/]+/[^/]+)/pull/.*#\1#')
+            if [ "$BASE_REPO" != "canonical/ovn-charms-v1" ]; then
+              echo "::error::Func-test-pr tag must reference a PR against canonical/ovn-charms-v1, but '$PR_URL' is against '$BASE_REPO'." >&2
+              exit 1
+            fi
+            gh pr view "$PR_URL" \
+              --json headRefOid \
+              > /tmp/func-test-pr.json
+            FUNC_TEST_REF=$(jq -r '.headRefOid' /tmp/func-test-pr.json)
+          fi
+
+          echo "func_test_ref=$FUNC_TEST_REF" >> "$GITHUB_OUTPUT"
 
   functest:
     name: Functional Tests
@@ -179,5 +225,5 @@ jobs:
       charm: ${{ matrix.charm }}
       bundle: ${{ matrix.bundle }}
       platform: ${{ matrix.platform }}
-      zaza_pr: ${{ needs.parse_tags.outputs.zaza_pr }}
+      func_test_ref: ${{ needs.parse_tags.outputs.func_test_ref }}
     secrets: inherit

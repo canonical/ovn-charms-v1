@@ -1,0 +1,74 @@
+# pin lxml < 4.6.3 for py35 as no wheels exist for 4.6.3 (deprecated platform)
+# This is necessary for Xenial builders
+# BUG: https://github.com/openstack-charmers/zaza-openstack-tests/issues/530
+lxml<4.6.3; python_version < '3.8'
+lxml; python_version >= '3.8'
+pyparsing<3.0.0; python_version <= '3.5'  # pin for aodhclient which is held for py35
+aiounittest
+async_generator
+# pyopenssl depends on a newer version of cryptography since 22.1.0
+# TypeError: deprecated() got an unexpected keyword argument 'name'
+# https://github.com/pyca/pyopenssl/commit/a145fc3bc6d2e943434beb2f04bbf9b18930296f
+pyopenssl<22.1.0
+
+trustme
+boto3<1.25
+PyYAML<=4.2,>=3.0; python_version < '3.9'
+PyYAML>=5.1; python_version >= '3.9'
+flake8>=5  # Python 3.8 compatibility in pyflakes 2.1.0+
+flake8-docstrings
+flake8-per-file-ignores
+pydocstyle<4.0.0
+coverage<6.0.0; python_version <= '3.5'  # coverage 6.0+ drops support for py3.5/py2.7
+mock>=1.2
+pytest
+pytest-cov
+pbr>=1.8.0
+simplejson>=2.2.0
+netifaces>=0.10.4
+netaddr>=0.7.12,!=0.7.16
+Jinja2>=2.6  # BSD License (3 clause)
+six>=1.9.0
+dnspython>=1.12.0
+psutil>=1.1.1,<2.0.0
+# osc-lib-4.0.0 introduced typing hints making it incompatible with py38.
+# https://github.com/openstack/osc-lib/commit/3d221e5992a74d6bb7d1b725e43015b8c87b9718
+osc-lib<4.0.0; python_version <= '3.8'
+python-openstackclient>=3.14.0
+aodhclient
+gnocchiclient>=7.0.5,<8.0.0
+pika>=1.1.0,<2.0.0
+python-barbicanclient
+python-designateclient
+python-ceilometerclient
+python-cinderclient
+python-glanceclient
+python-heatclient
+python-ironicclient
+python-keystoneclient
+python-magnumclient
+python-manilaclient
+python-neutronclient
+python-novaclient
+python-octaviaclient
+python-swiftclient
+python-watcherclient
+# Due to https://github.com/jd/tenacity/pull/479 the strategy for mocking out tenacity
+# waits/times/etc no longer works.  Pin to 8.4.1 until it is solved.
+# Bug in tenacity tracking issue: https://github.com/jd/tenacity/issues/482
+tenacity<8.4.2
+paramiko
+
+# Documentation requirements
+sphinx
+sphinxcontrib-asyncio
+git+https://github.com/openstack-charmers/zaza#egg=zaza
+
+# Newer versions require a Rust compiler to build, see
+# * https://github.com/openstack-charmers/zaza/issues/421
+# * https://mail.python.org/pipermail/cryptography-dev/2021-January/001003.html
+cryptography<3.4
+
+# setuptools>=82 removes pkg_resources.declare_namespace() which is still
+# used by several OpenStack client libraries (keystoneclient, etc).
+setuptools<82

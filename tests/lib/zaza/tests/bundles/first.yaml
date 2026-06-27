@@ -1,0 +1,20 @@
+series: focal
+applications:
+  magpie-focal:
+    series: focal
+    charm: ch:magpie
+    channel: latest/edge
+    num_units: 2
+  magpie-jammy:
+    series: jammy
+    charm: ch:magpie
+    channel: latest/edge
+    num_units: 2
+  ubuntu:
+    charm: ch:ubuntu
+    num_units: 3
+  local-users:
+    charm: ch:local-users
+    num_units: 0
+relations:
+  - [ubuntu, local-users]
