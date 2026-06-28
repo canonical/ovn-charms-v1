@@ -171,7 +171,7 @@
       "package": "anyio",
       "type": "python_module",
       "vcs": null,
-      "version": "3.6.2"
+      "version": "3.7.1"
     },
     {
       "package": "charmhelpers",
@@ -220,7 +220,7 @@
       "package": "setuptools_scm",
       "type": "python_module",
       "vcs": null,
-      "version": "10.0.5"
+      "version": "10.2.0"
     },
     {
       "package": "charms.reactive",
@@ -233,7 +233,7 @@
       "package": "trove-classifiers",
       "type": "python_module",
       "vcs": null,
-      "version": "2026.5.22.10"
+      "version": "2026.6.1.19"
     },
     {
       "package": "pip",
@@ -251,7 +251,7 @@
       "package": "idna",
       "type": "python_module",
       "vcs": null,
-      "version": "3.16"
+      "version": "3.18"
     },
     {
       "package": "dnspython",
@@ -275,7 +275,7 @@
       "package": "hatchling",
       "type": "python_module",
       "vcs": null,
-      "version": "1.29.0"
+      "version": "1.30.1"
     },
     {
       "package": "psutil",
@@ -299,7 +299,7 @@
       "package": "netaddr",
       "type": "python_module",
       "vcs": null,
-      "version": "0.7.20"
+      "version": "0.10.1"
     },
     {
       "package": "packaging",
@@ -311,13 +311,13 @@
       "package": "cosl",
       "type": "python_module",
       "vcs": null,
-      "version": "0.0.57"
+      "version": "0.1.1"
     },
     {
       "package": "ops",
       "type": "python_module",
       "vcs": null,
-      "version": "2.20.0"
+      "version": "2.23.2"
     }
   ]
 }
