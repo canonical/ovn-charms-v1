@@ -120,7 +120,6 @@ jobs:
         working-directory: ./ovn-${{ matrix.charm }}
         run: |
           ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
-          charmcraft clean
           charmcraft -v pack --platform ${{ matrix.platform }}:$ARCH
 
       - name: Store charm as artifact
