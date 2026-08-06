@@ -367,13 +367,7 @@ class BaseCharmTest(unittest.TestCase):
                 'Waiting for units to execute config-changed hook')
             model.wait_for_agent_status(model_name=self.model_name)
 
-            logging.debug(
-                'Waiting for units to reach target states')
-            model.wait_for_application_states(
-                model_name=self.model_name,
-                states=self.test_config.get('target_deploy_status', {}))
-            # TODO: Optimize with a block on a specific application until idle.
-            model.block_until_all_units_idle()
+            self._wait_for_units_after_config_change()
 
             yield
 
@@ -399,13 +393,7 @@ class BaseCharmTest(unittest.TestCase):
         logging.debug(
             'Waiting for units to execute config-changed hook')
         model.wait_for_agent_status(model_name=self.model_name)
-        logging.debug(
-            'Waiting for units to reach target states')
-        model.wait_for_application_states(
-            model_name=self.model_name,
-            states=self.test_config.get('target_deploy_status', {}))
-        # TODO: Optimize with a block on a specific application until idle.
-        model.block_until_all_units_idle()
+        self._wait_for_units_after_config_change()
 
     def restart_on_changed_debug_oslo_config_file(self, config_file, services,
                                                   config_section='DEFAULT'):
@@ -729,7 +717,11 @@ class BaseCharmTest(unittest.TestCase):
 
         This function monitors the Juju machine log on the unit for evidence
         that both the reboot and subsequent symlink recreation for the given
-        unit have been recorded, indicating it is safe to continue.
+        unit have been recorded.  It then waits for all units to reach idle
+        agent status, ensuring post-reboot hooks (e.g. ``start``,
+        ``leader-settings-changed``) have completed.  A unit may enter an
+        error state during these hooks due to the same ETXTBSY race; such
+        errors are resolved automatically before waiting for idle.
 
         :param unit_name: Name of the unit to wait for (e.g. 'ovn-chassis/0')
         :type unit_name: str
@@ -751,6 +743,67 @@ class BaseCharmTest(unittest.TestCase):
         logging.info(
             'Juju reboot and symlink recreation confirmed '
             'for {}'.format(unit_name))
+        self._wait_for_all_units_idle_with_recovery()
+
+    def _wait_for_all_units_idle_with_recovery(self):
+        """Wait for all units to be idle, resolving transient errors.
+
+        After a machine reboot, the Juju agent tools may intermittently
+        fail with ETXTBSY (Text file busy) when executing hook tools
+        (ref: https://launchpad.net/bugs/2077936).  This can cause hooks
+        to fail and put units into an error state.  This helper waits
+        for all units to reach idle agent status, resolving any error
+        states that arise from the transient race and retrying.
+        """
+        for attempt in tenacity.Retrying(
+                stop=tenacity.stop_after_attempt(3),
+                wait=tenacity.wait_fixed(10),
+                reraise=True):
+            with attempt:
+                try:
+                    model.block_until_all_units_idle(
+                        model_name=self.model_name)
+                except model.UnitError as e:
+                    logging.warning(
+                        'Unit error while waiting for idle after reboot, '
+                        'possibly due to LP: #2077936 (ETXTBSY race). '
+                        'Resolving and retrying. Error: {}'.format(e))
+                    model.resolve_units(model_name=self.model_name)
+                    raise
+
+    def _wait_for_units_after_config_change(self):
+        """Wait for units to settle after a config change, with retry.
+
+        The ETXTBSY (Text file busy) race in Juju (LP: #2077936) can cause
+        the ``config-changed`` hook to fail, putting the unit into an
+        error state.  This is particularly likely when a config change is
+        applied shortly after a machine reboot.  This helper waits for
+        units to reach their target states and idle status, resolving
+        any transient error states and retrying.
+        """
+        for attempt in tenacity.Retrying(
+                stop=tenacity.stop_after_attempt(3),
+                wait=tenacity.wait_fixed(10),
+                reraise=True):
+            with attempt:
+                try:
+                    logging.debug(
+                        'Waiting for units to reach target states')
+                    model.wait_for_application_states(
+                        model_name=self.model_name,
+                        states=self.test_config.get(
+                            'target_deploy_status', {}))
+                    # TODO: Optimize with a block on a specific application
+                    # until idle.
+                    model.block_until_all_units_idle(
+                        model_name=self.model_name)
+                except model.UnitError as e:
+                    logging.warning(
+                        'Unit error after config change, possibly due to '
+                        'LP: #2077936 (ETXTBSY race). Resolving and '
+                        'retrying. Error: {}'.format(e))
+                    model.resolve_units(model_name=self.model_name)
+                    raise
 
     def enable_hugepages_vfio_on_hvs_in_vms(self, nr_1g_hugepages):
         """Enable hugepages and unsafe VFIO NOIOMMU on virtual hypervisors."""

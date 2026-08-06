@@ -59,34 +59,27 @@ class TestBaseCharmTest(ut_utils.BaseTestCase):
         self.config_current.return_value = default_config
         self.patch_object(test_utils.model, 'set_application_config')
         self.patch_object(test_utils.model, 'wait_for_agent_status')
-        self.patch_object(test_utils.model, 'wait_for_application_states')
-        self.patch_object(test_utils.model, 'block_until_all_units_idle')
+        self.patch_target('_wait_for_units_after_config_change')
         with self.target.config_change(
                 default_config, alterna_config, application_name='anApp'):
             self.set_application_config.assert_called_once_with(
                 'anApp', alterna_config, model_name='aModel')
             self.wait_for_agent_status.assert_called_once_with(
                 model_name='aModel')
-            self.wait_for_application_states.assert_called_once_with(
-                model_name='aModel', states={})
-            self.block_until_all_units_idle.assert_called_once_with()
+            self._wait_for_units_after_config_change.assert_called_once_with()
         # after yield we will have different calls than the above, measure both
         self.set_application_config.assert_has_calls([
             mock.call('anApp', alterna_config, model_name='aModel'),
             mock.call('anApp', default_config, model_name='aModel'),
         ])
-        self.wait_for_application_states.assert_has_calls([
-            mock.call(model_name='aModel', states={}),
-            mock.call(model_name='aModel', states={}),
-        ])
-        self.block_until_all_units_idle.assert_has_calls([
+        self._wait_for_units_after_config_change.assert_has_calls([
             mock.call(),
             mock.call(),
         ])
         # confirm operation with `reset_to_charm_default`
         self.set_application_config.reset_mock()
         self.wait_for_agent_status.reset_mock()
-        self.wait_for_application_states.reset_mock()
+        self._wait_for_units_after_config_change.reset_mock()
         self.patch_object(test_utils.model, 'reset_application_config')
         with self.target.config_change(
                 default_config, alterna_config, application_name='anApp',
@@ -98,11 +91,7 @@ class TestBaseCharmTest(ut_utils.BaseTestCase):
         self.assertFalse(self.set_application_config.called)
         self.reset_application_config.assert_called_once_with(
             'anApp', list(alterna_config.keys()), model_name='aModel')
-        self.wait_for_application_states.assert_has_calls([
-            mock.call(model_name='aModel', states={}),
-            mock.call(model_name='aModel', states={}),
-        ])
-        self.block_until_all_units_idle.assert_has_calls([
+        self._wait_for_units_after_config_change.assert_has_calls([
             mock.call(),
             mock.call(),
         ])
@@ -110,7 +99,7 @@ class TestBaseCharmTest(ut_utils.BaseTestCase):
         # are the same. This is used to set config and not change it back.
         self.set_application_config.reset_mock()
         self.wait_for_agent_status.reset_mock()
-        self.wait_for_application_states.reset_mock()
+        self._wait_for_units_after_config_change.reset_mock()
         self.reset_application_config.reset_mock()
         with self.target.config_change(
                 alterna_config, alterna_config, application_name='anApp'):
@@ -119,11 +108,11 @@ class TestBaseCharmTest(ut_utils.BaseTestCase):
             # we want to assert these not to be called after yield
             self.set_application_config.reset_mock()
             self.wait_for_agent_status.reset_mock()
-            self.wait_for_application_states.reset_mock()
+            self._wait_for_units_after_config_change.reset_mock()
         self.assertFalse(self.set_application_config.called)
         self.assertFalse(self.reset_application_config.called)
         self.assertFalse(self.wait_for_agent_status.called)
-        self.assertFalse(self.wait_for_application_states.called)
+        self.assertFalse(self._wait_for_units_after_config_change.called)
 
     def test_separate_non_string_config(self):
         intended_cfg_keys = ['foo2', 'foo3', 'foo4', 'foo5']
@@ -360,6 +349,7 @@ class TestBaseCharmTest(ut_utils.BaseTestCase):
     def test_wait_for_juju_symlinks_after_reboot(self):
         """Test waiting for Juju symlink recreation after reboot."""
         self.patch_object(test_utils.zaza.utilities.juju, 'remote_run')
+        self.patch_target('_wait_for_all_units_idle_with_recovery')
         self.target.model_name = 'zaza-123'
 
         self.target._wait_for_juju_symlinks_after_reboot('ovn-chassis/0')
@@ -373,10 +363,12 @@ class TestBaseCharmTest(ut_utils.BaseTestCase):
             expected_cmd,
             model_name='zaza-123',
             fatal=True)
+        self._wait_for_all_units_idle_with_recovery.assert_called_once_with()
 
     def test_wait_for_juju_symlinks_after_reboot_retries(self):
         """Test that waiting for symlinks retries on failure."""
         self.patch_object(test_utils.zaza.utilities.juju, 'remote_run')
+        self.patch_target('_wait_for_all_units_idle_with_recovery')
         self.target.model_name = 'zaza-123'
 
         self.remote_run.side_effect = [
@@ -387,6 +379,67 @@ class TestBaseCharmTest(ut_utils.BaseTestCase):
         self.target._wait_for_juju_symlinks_after_reboot('ovn-chassis/0')
 
         self.assertEqual(self.remote_run.call_count, 2)
+        self._wait_for_all_units_idle_with_recovery.assert_called_once_with()
+
+    def test_wait_for_all_units_idle_with_recovery(self):
+        """Test waiting for all units idle after reboot."""
+        self.patch_object(test_utils.model, 'block_until_all_units_idle')
+        self.target.model_name = 'zaza-123'
+
+        self.target._wait_for_all_units_idle_with_recovery()
+
+        self.block_until_all_units_idle.assert_called_once_with(
+            model_name='zaza-123')
+
+    def test_wait_for_all_units_idle_with_recovery_retries(self):
+        """Test recovery from UnitError while waiting for idle after reboot."""
+        self.patch_object(test_utils.model, 'block_until_all_units_idle')
+        self.patch_object(test_utils.model, 'resolve_units')
+        self.target.model_name = 'zaza-123'
+        unit = mock.MagicMock()
+
+        self.block_until_all_units_idle.side_effect = [
+            test_utils.zaza.model.UnitError(unit),
+            None,
+        ]
+
+        self.target._wait_for_all_units_idle_with_recovery()
+
+        self.assertEqual(self.block_until_all_units_idle.call_count, 2)
+        self.resolve_units.assert_called_once_with(model_name='zaza-123')
+
+    def test_wait_for_units_after_config_change(self):
+        """Test waiting for units to settle after config change."""
+        self.patch_object(test_utils.model, 'wait_for_application_states')
+        self.patch_object(test_utils.model, 'block_until_all_units_idle')
+        self.target.model_name = 'zaza-123'
+        self.target.test_config = {}
+
+        self.target._wait_for_units_after_config_change()
+
+        self.wait_for_application_states.assert_called_once_with(
+            model_name='zaza-123', states={})
+        self.block_until_all_units_idle.assert_called_once_with(
+            model_name='zaza-123')
+
+    def test_wait_for_units_after_config_change_retries(self):
+        """Test recovery from UnitError after config change."""
+        self.patch_object(test_utils.model, 'wait_for_application_states')
+        self.patch_object(test_utils.model, 'block_until_all_units_idle')
+        self.patch_object(test_utils.model, 'resolve_units')
+        self.target.model_name = 'zaza-123'
+        self.target.test_config = {}
+        unit = mock.MagicMock()
+
+        self.wait_for_application_states.side_effect = [
+            test_utils.zaza.model.UnitError(unit),
+            None,
+        ]
+
+        self.target._wait_for_units_after_config_change()
+
+        self.assertEqual(self.wait_for_application_states.call_count, 2)
+        self.resolve_units.assert_called_once_with(model_name='zaza-123')
 
 
 class TestOpenStackBaseTest(ut_utils.BaseTestCase):
