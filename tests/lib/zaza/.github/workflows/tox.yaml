@@ -1,0 +1,139 @@
+name: Python package
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.10', '3.11', '3.12']
+    steps:
+    - uses: actions/checkout@v1
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install codecov tox tox-gh-actions
+    - name: Lint with tox
+      run: tox -e pep8
+    - name: Test with tox
+      run: tox -e py3
+    - name: Codecov
+      run: |
+        set -euxo pipefail
+        codecov --verbose --gcov-glob unit_tests/*
+    - name: Build python package
+      run: |
+        set -euxo pipefail
+        tox -e build
+    - name: Validate the python package can be installed
+      run: |
+        set -euxo pipefail
+        VENV=$(mktemp -d)
+        python3 -m venv $VENV
+        source $VENV/bin/activate
+        pip install dist/*.tar.gz
+        functest-run-suite --help
+  func:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        juju_channel:
+          - 2.9/stable
+          # - 3.1/stable
+          # - 3.2/stable
+          # - 3.3/stable
+          - 3.6/stable
+        bundle:
+          - first
+          - second
+        include:
+          - juju_channel: 2.9/stable
+            snap_install_flags: "--classic"
+            pip_constraints: constraints-juju29.txt
+          # - juju_channel: 3.1/stable
+          #   snap_install_flags: ""
+          #   pip_constraints: constraints-juju31.txt
+          # NOTE(freyes): disabled until "RuntimeError: set_wakeup_fd only works
+          # in main thread of the main interpreter" gets fixed.
+          # https://pastebin.ubuntu.com/p/GfYKgpx3SP/
+          #
+          # - juju_channel: 3.2/stable
+          #   snap_install_flags: ""
+          #   pip_constraints: constraints-juju32.txt
+          # - juju_channel: 3.3/stable
+          #   snap_install_flags: ""
+          #   pip_constraints: constraints-juju33.txt
+          - juju_channel: 3.6/stable
+            snap_install_flags: ""
+            pip_constraints: constraints-juju36.txt
+            juju3: 1
+    env:
+      TEST_ZAZA_BUG_LP1987332: "on"  # http://pad.lv/1987332
+    needs: build
+    steps:
+    - uses: actions/checkout@v1
+    - name: Free Disk Space (Ubuntu)
+      uses: jlumbroso/free-disk-space@main
+      with:
+        tool-cache: false
+        large-packages: false
+        docker-images: false
+        swap-storage: false
+    - name: Install dependencies
+      run: |
+        set -euxo pipefail
+        sudo apt-get update
+        sudo apt-get install -yq snapd
+        sudo systemctl enable snapd
+        sudo systemctl restart snapd
+        python -m pip install --upgrade pip
+        pip install tox tox-gh-actions
+        sudo snap install ${{ matrix.snap_install_flags }} --channel ${{ matrix.juju_channel }} juju
+        sudo snap install --classic juju-crashdump
+        sudo lxd init --auto
+        # This is a throw-away CI environment, do not do this at home
+        sudo chmod 666 /var/snap/lxd/common/lxd/unix.socket
+        # until Juju provides stable IPv6-support we unfortunately need this
+        lxc network set lxdbr0 ipv6.address none
+        sudo iptables -F FORWARD
+        sudo iptables -P FORWARD ACCEPT
+        # pull images
+        lxc image copy --alias juju/ubuntu@20.04/amd64 --alias juju/focal/amd64 --copy-aliases ubuntu-daily:focal local:
+        lxc image copy --alias juju/ubuntu@22.04/amd64 --alias juju/jammy/amd64 --copy-aliases ubuntu-daily:jammy local:
+        lxc image list
+        juju bootstrap localhost
+    - name: Functional test
+      run: |
+        set -euxo pipefail
+        mkdir logs
+        export PIP_CONSTRAINTS=$(pwd)/${{ matrix.pip_constraints }}
+        export TEST_JUJU3=${{ matrix.juju3 }}
+        tox -e func-target -- ${{ matrix.bundle }} | tee logs/tox-output.txt
+    - name: crashdump on failure
+      if: failure()
+      run: |
+        set -eux
+        juju models
+        model=$(juju models --format yaml|grep "^- name:.*zaza"|cut -f2 -d/)
+        juju status -m $model | tee logs/juju-status.txt
+        juju status -m controller | tee logs/juju-status-controller.txt
+        juju-crashdump --as-root -m $model -o logs/
+        juju-crashdump --as-root -m controller -o logs/
+    - name: upload logs on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-run-logs-and-crashdump
+        path: logs/
+    # # disable upterm
+    # - name: consider debugging
+    #   uses: lhotari/action-upterm@v1
+    #   if: failure()

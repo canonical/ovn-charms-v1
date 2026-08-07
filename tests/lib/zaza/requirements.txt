@@ -1,0 +1,37 @@
+pyparsing<3.0.0  # pin for aodhclient which is held for py35
+async_generator
+kubernetes<18.0.0; python_version < '3.6' # pined, as juju uses kubernetes
+juju_wait
+PyYAML>=3.0
+pbr==5.6.0
+simplejson>=2.2.0
+netifaces>=0.10.4
+netaddr>=0.7.12,!=0.7.16
+Jinja2>=2.6  # BSD License (3 clause)
+six>=1.9.0
+dnspython>=1.12.0
+psutil>=1.1.1,<2.0.0
+oslo.config<6.9.0;python_version < '3.6'  # pin for py3.5 support
+oslo.context<3.0.0;python_version < '3.6'  # pin for py3.5 support
+osprofiler<3.0.0;python_version < '3.6'  # pin for py3.5 support
+python-openstackclient>=3.14.0
+aodhclient
+python-designateclient
+python-ceilometerclient
+python-cinderclient
+python-glanceclient
+python-heatclient
+python-keystoneclient
+python-neutronclient
+python-novaclient
+python-octaviaclient
+python-swiftclient
+tenacity>8.2.0
+paramiko
+python-libmaas
+requests<2.26  # pin for py3.5 support
+# Documentation requirements
+sphinx
+sphinxcontrib-asyncio
+# https://github.com/go-macaroon-bakery/py-macaroon-bakery/issues/94
+macaroonbakery!=1.3.3
