@@ -7,7 +7,7 @@ on:
         required: true
         type: string
       func_test_ref:
-        description: "Git ref (SHA) of an ovn-charms-v1 PR whose subtree updates should be tested; empty uses the commit under test."
+        description: "Git ref (SHA) of an ovn-charms-v1 PR whose subtree updates should be tested; empty uses the commit under test when base_ref is main, otherwise main."
         required: false
         type: string
         default: ""
@@ -100,7 +100,7 @@ jobs:
           # When a Func-test-pr: tag targets an ovn-charms-v1 PR, test
           # the subtree content from that PR's head SHA; otherwise test
           # the subtree content at the exact commit under test.
-          OVN_CHARMS_REF: ${{ inputs.func_test_ref || github.sha }}
+          OVN_CHARMS_REF: ${{ inputs.func_test_ref || ( github.base_ref == 'main' && github.sha || 'main' ) }}
         run: |
           CHARM_FACTOR=$(echo "$CHARM" | tr '-' '_')
           tox -e "func-target-${CHARM_FACTOR}" -- ${{ inputs.bundle }}
