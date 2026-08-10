@@ -6,10 +6,11 @@ gate_bundles:
 
 smoke_bundles:
 - focal-yoga
+- jammy-yoga
 
 target_deploy_status:
-  magpie:
-    workload-status-message: icmp ok
+  ubuntu:
+    workload-status-message: ""
   ovn-central:
     workload-status: waiting
     workload-status-message-prefix: "'ovsdb-peer' incomplete, 'certificates' awaiting server certificate data"
@@ -30,10 +31,10 @@ configure:
 - zaza.openstack.charm_tests.neutron.setup.undercloud_and_charm_setup
 
 configure_options:
-  # magpie is obviously not a hypervisor, but for the purpose of this charm
+  # ubuntu is obviously not a hypervisor, but for the purpose of this charm
   # gate it is the principal charm for ovn-chassis and as such is the target
   # unit for preparing hugepages and VFIO configuration.
-  hypervisor_application: 'magpie'
+  hypervisor_application: 'ubuntu'
 
 tests:
 - zaza.openstack.charm_tests.ovn.tests.OVNChassisDeferredRestartTest

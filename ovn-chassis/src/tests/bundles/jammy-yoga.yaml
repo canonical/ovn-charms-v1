@@ -19,23 +19,22 @@ applications:
       source: *openstack-origin
     channel: 22.03/stable
 
-  magpie:
+  ubuntu:
     # The large memory allocation for this application is for the purpose of DPDK
     # tests that use hugepages
     constraints: "virt-type=virtual-machine mem=8G"
-    charm: ch:magpie
+    charm: ch:ubuntu
     num_units: 2
-    channel: legacy/stable
 
   ovn-chassis:
-    charm: ../../../ovn-chassis_ubuntu-22.04-amd64.charm
+    charm: ../../../ovn-chassis_ubuntu@22.04-amd64.charm
 
 relations:
 
   - - 'ovn-central:certificates'
     - 'vault:certificates'
 
-  - - 'magpie:juju-info'
+  - - 'ubuntu:juju-info'
     - 'ovn-chassis:juju-info'
 
   - - 'ovn-chassis:ovsdb'
