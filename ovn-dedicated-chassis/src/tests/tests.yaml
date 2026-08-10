@@ -2,16 +2,9 @@ charm_name: ovn-dedicated-chassis
 
 gate_bundles:
 - jammy-antelope
-- jammy-zed
-- lunar-antelope
 
 smoke_bundles:
-- jammy-zed
-
-dev_bundles:
-- jammy-zed
 - jammy-antelope
-- lunar-antelope
 
 target_deploy_status:
   ovn-central:
@@ -31,6 +24,4 @@ tests:
 - zaza.openstack.charm_tests.ovn.tests.OVNDedicatedChassisDeferredRestartTest
 - zaza.openstack.charm_tests.ovn.tests.ChassisCharmOperationTest
 
-tests_options:
-  force_deploy:
-    - lunar-antelope
+tests_options: {}

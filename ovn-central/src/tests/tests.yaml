@@ -2,15 +2,9 @@ charm_name: ovn-central
 
 gate_bundles:
 - jammy-antelope
-- jammy-zed
 
 smoke_bundles:
 - jammy-antelope
-
-dev_bundles:
-- jammy-zed
-- jammy-antelope
-- lunar-antelope
 
 target_deploy_status:
   ovn-central:
@@ -33,6 +27,4 @@ tests:
 - zaza.openstack.charm_tests.ovn.tests.CentralCharmOperationTest
 - zaza.openstack.charm_tests.ovn.tests.OVNCentralDownscaleTests
 
-tests_options:
-  force_deploy:
-    - lunar-antelope
+tests_options: {}
