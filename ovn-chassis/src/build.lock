@@ -187,7 +187,7 @@
       "package": "anyio",
       "type": "python_module",
       "vcs": null,
-      "version": "3.6.2"
+      "version": "3.7.1"
     },
     {
       "package": "charmhelpers",
@@ -236,7 +236,7 @@
       "package": "setuptools_scm",
       "type": "python_module",
       "vcs": null,
-      "version": "10.1.2"
+      "version": "10.2.1"
     },
     {
       "package": "charms.reactive",
@@ -249,13 +249,13 @@
       "package": "trove-classifiers",
       "type": "python_module",
       "vcs": null,
-      "version": "2026.5.22.10"
+      "version": "2026.6.1.19"
     },
     {
       "package": "pip",
       "type": "python_module",
       "vcs": null,
-      "version": "26.1.2"
+      "version": "26.2.1"
     },
     {
       "package": "pluggy",
@@ -267,7 +267,7 @@
       "package": "idna",
       "type": "python_module",
       "vcs": null,
-      "version": "3.16"
+      "version": "3.18"
     },
     {
       "package": "dnspython",
@@ -291,7 +291,7 @@
       "package": "hatchling",
       "type": "python_module",
       "vcs": null,
-      "version": "1.29.0"
+      "version": "1.31.0"
     },
     {
       "package": "psutil",
@@ -315,43 +315,43 @@
       "package": "netaddr",
       "type": "python_module",
       "vcs": null,
-      "version": "0.7.20"
+      "version": "0.10.1"
     },
     {
       "package": "packaging",
       "type": "python_module",
       "vcs": null,
-      "version": "26.2"
+      "version": "26.3"
     },
     {
       "package": "cosl",
       "type": "python_module",
       "vcs": null,
-      "version": "0.0.57"
+      "version": "0.1.1"
     },
     {
       "package": "ops",
       "type": "python_module",
       "vcs": null,
-      "version": "2.20.0"
+      "version": "2.23.4"
     },
     {
       "package": "jsonschema",
       "type": "python_module",
       "vcs": null,
-      "version": "4.22.0"
+      "version": "4.26.0"
     },
     {
       "package": "rpds_py",
       "type": "python_module",
       "vcs": null,
-      "version": "0.18.1"
+      "version": "0.30.0"
     },
     {
       "package": "annotated-types",
       "type": "python_module",
       "vcs": null,
-      "version": "0.7.0"
+      "version": "0.8.0"
     },
     {
       "package": "attrs",
@@ -363,7 +363,7 @@
       "package": "certifi",
       "type": "python_module",
       "vcs": null,
-      "version": "2026.6.17"
+      "version": "2026.7.22"
     },
     {
       "package": "h11",
@@ -381,7 +381,7 @@
       "package": "hpack",
       "type": "python_module",
       "vcs": null,
-      "version": "4.1.0"
+      "version": "4.2.0"
     },
     {
       "package": "httpcore",
@@ -411,13 +411,13 @@
       "package": "lightkube",
       "type": "python_module",
       "vcs": null,
-      "version": "0.19.1"
+      "version": "0.22.0"
     },
     {
       "package": "lightkube-models",
       "type": "python_module",
       "vcs": null,
-      "version": "1.35.0.8"
+      "version": "1.36.3.8"
     },
     {
       "package": "looseversion",
@@ -435,7 +435,7 @@
       "package": "pydantic_core",
       "type": "python_module",
       "vcs": null,
-      "version": "2.46.4"
+      "version": "2.48.0"
     },
     {
       "package": "referencing",
@@ -453,13 +453,13 @@
       "package": "typing_extensions",
       "type": "python_module",
       "vcs": null,
-      "version": "4.15.0"
+      "version": "4.16.0"
     },
     {
       "package": "vcs-versioning",
       "type": "python_module",
       "vcs": null,
-      "version": "2.1.2"
+      "version": "2.2.4"
     },
     {
       "package": "websocket-client",
