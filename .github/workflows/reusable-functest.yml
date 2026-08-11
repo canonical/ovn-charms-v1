@@ -86,6 +86,13 @@ jobs:
           # fail the test unnecessarily
           (r=30;while ! juju add-k8s mk8s --controller concierge-lxd ; do ((--r))||exit;sleep 2;done)
 
+          # Workaround for Juju deployment error race with LXD provider:
+          # "failed to start machine",
+          # "attempt count exceeded: Failed remote image download: Alias already exists"
+          ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
+          RELEASE=$(echo ${{ inputs.platform }} | cut -f2 -d@)
+          lxc image copy ubuntu-daily:$RELEASE local: --alias juju/${{ inputs.platform }}/$ARCH
+
       - name: Deploy COS lite bundle
         working-directory: ./ovn-${{ inputs.charm }}/src/tests/bundles/
         run: |
