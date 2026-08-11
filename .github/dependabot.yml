@@ -1,0 +1,5 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    exclude-paths:
+      - "tests/lib/zaza/doc-requirements.txt"
