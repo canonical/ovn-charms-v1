@@ -7,6 +7,20 @@
 
   baseBranchPatterns: ["main", "/^stable\\/.*/"],
 
+  ignorePaths: [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**",
+    "**/examples/**",
+    "**/__tests__/**",
+    "**/test/**",
+    "**/__fixtures__/**",
+    "tests/lib/zaza/.github/**",
+    "tests/lib/zaza-openstack-tests/.github/**",
+    "tests/lib/zaza/doc-requirements.txt",
+    "tests/lib/zaza/doc-requirements.in",
+  ],
+
   dependencyDashboard: true,
   dependencyDashboardOSVVulnerabilitySummary: "all",
 
@@ -93,6 +107,11 @@
       semanticCommitScope: "layers",
       enabled: false,
       pinDigests: true,
+    },
+    {
+      matchManagers: ["pip_requirements", "pip_setup"],
+      semanticCommitType: "fix",
+      semanticCommitScope: "deps",
     },
     {
       matchUpdateTypes: ["minor", "patch"],
