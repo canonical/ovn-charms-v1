@@ -109,6 +109,11 @@
       pinDigests: true,
     },
     {
+      matchManagers: ["pip_requirements", "pip_setup"],
+      semanticCommitType: "fix",
+      semanticCommitScope: "deps",
+    },
+    {
       matchUpdateTypes: ["minor", "patch"],
       matchCurrentVersion: "!/^0/",
       automerge: true,
