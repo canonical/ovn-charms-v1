@@ -1,4 +1,4 @@
-stestr>=2.2.0
+stestr>=4.2.1
 requests>=2.34.2
 charms.reactive
 mock>=5.2.0
