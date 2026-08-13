@@ -71,4 +71,4 @@ cryptography<3.4
 
 # setuptools>=82 removes pkg_resources.declare_namespace() which is still
 # used by several OpenStack client libraries (keystoneclient, etc).
-setuptools<82
+setuptools<84

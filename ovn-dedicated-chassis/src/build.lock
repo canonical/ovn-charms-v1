@@ -114,7 +114,7 @@
       "package": "setuptools",
       "type": "python_module",
       "vcs": null,
-      "version": "81.0.0"
+      "version": "83.0.0"
     },
     {
       "package": "calver",
