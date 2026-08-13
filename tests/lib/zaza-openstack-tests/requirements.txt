@@ -1,7 +1,7 @@
 # pin lxml < 4.6.3 for py35 as no wheels exist for 4.6.3 (deprecated platform)
 # This is necessary for Xenial builders
 # BUG: https://github.com/openstack-charmers/zaza-openstack-tests/issues/530
-lxml<4.6.3; python_version < '3.8'
+lxml<4.6.6; python_version < '3.8'
 lxml; python_version >= '3.8'
 pyparsing<3.0.0; python_version <= '3.5'  # pin for aodhclient which is held for py35
 aiounittest
