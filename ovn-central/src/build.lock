@@ -389,19 +389,19 @@
       "package": "pydantic",
       "type": "python_module",
       "vcs": null,
-      "version": "2.13.4"
+      "version": "2.13.5"
     },
     {
       "package": "pydantic_core",
       "type": "python_module",
       "vcs": null,
-      "version": "2.46.4"
+      "version": "2.46.5"
     },
     {
       "package": "typing-inspection",
       "type": "python_module",
       "vcs": null,
-      "version": "0.4.2"
+      "version": "0.4.4"
     },
     {
       "package": "typing_extensions",
@@ -419,7 +419,7 @@
       "package": "websocket-client",
       "type": "python_module",
       "vcs": null,
-      "version": "1.9.0"
+      "version": "1.9.2"
     }
   ]
 }
