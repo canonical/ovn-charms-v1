@@ -1,0 +1,381 @@
+options:
+  source:
+    default: distro
+    type: string
+    description: |
+      Repository from which to install packages.
+
+      May be one of the following:
+
+        distro (default)
+        ppa:somecustom/ppa (PPA name must include UCA OpenStack Release name)
+        deb url sources entry|key id
+        or a supported Ubuntu Cloud Archive pocket.
+
+      Supported Ubuntu Cloud Archive pockets include:
+
+        cloud:xenial-pike
+        cloud:xenial-queens
+        cloud:bionic-rocky
+
+      Note that updating this setting to a source that is known to
+      provide a later version of OVN will trigger a software
+      upgrade.
+  ovn-source:
+    default: ''
+    type: string
+    description: |
+      Overlay repository from which to install OVS+OVN.
+
+      The default for this configuration option is determined at charm
+      runtime.
+
+      When charm is deployed into a fresh environment on Ubuntu
+      20.04 (Focal Fossa), the default will be 'cloud:focal-ovn-22.03'.
+
+      When charm is upgraded or deployed into a fresh environment
+      on a different series the default will be to not use the
+      overlay repository.
+
+      To disable the overlay repository, set this option to 'distro'.
+
+      Note that updating this setting to a source that is known to
+      provide a later version of OVN will trigger a software
+      upgrade.
+  bridge-interface-mappings:
+    type: string
+    default:
+    description: >
+      A space-delimited list of key-value pairs that map a network interface
+      MAC address or name to a local ovs bridge to which it should be
+      connected.
+
+      Note: MAC addresses of physical interfaces that belong to a bond will be
+      resolved to the bond name and the bond will be added to the ovs bridge.
+
+      Bridges referenced here must be mentioned in the `ovn-bridge-mappings`
+      configuration option.
+
+      If a match is found the bridge will be created if it does not already
+      exist, the matched interface will be added to it and the mapping found in
+      `ovn-bridge-mappings` will be added to the local OVSDB under the
+      `external_ids:ovn-bridge-mappings` key in the Open_vSwitch table.
+
+      An example value mapping two network interface mac address to two ovs
+      bridges would be:
+
+          br-internet:00:00:5e:00:00:42 br-provider:enp3s0f0
+
+
+      Note: OVN gives you distributed East/West and highly available
+      North/South routing by default.  You do not need to add provider networks
+      for use with external Layer3 connectivity to all chassis.
+
+      Doing so will create a scaling problem at the physical network layer
+      that needs to be resolved with globally shared Layer2 (does not scale) or
+      tunneling at the top-of-rack switch layer (adds complexity) and is
+      generally not a recommended configuration.
+
+      Add provider networks for use with external Layer3 connectivity to
+      individual chassis located near the datacenter border gateways by adding
+      the MAC address of the physical interfaces of those units.
+  dpdk-bond-mappings:
+    type: string
+    default:
+    description: |
+      Space-delimited list of bond:port mappings. The DPDK assigned ports will
+      be added to their corresponding bond, which in turn will be put into the
+      bridge as specified in data-port.
+
+      This option is supported only when enable-dpdk is true.
+  dpdk-bond-config:
+    type: string
+    default: ":balance-tcp:active:fast"
+    description: |
+      Space delimited list of bond:mode:lacp:lacp-time, where the arguments meaning is:
+
+          * bond - the bond name. If not specified the configuration applies to all bonds
+          * mode - the bond mode of operation. Possible values are:
+            - active-backup - No load balancing is offered in this mode and only one of
+                              the member ports is active/used at a time.
+            - balance-slb - Considered as a static load-balancing mode. Traffic is load
+                            balanced between member ports based on the source MAC and VLAN.
+            - balance-tcp - This is the preferred bonding mode. It offers traffic load
+                            balancing based on 5-tuple header fields. LACP must be enabled
+                            at both endpoints to use this mode. The aggregate link will
+                            fall back to default mode (active-passive) in the event of LACP
+                            negotiation failure.
+          * lacp - active, passive or off
+          * lacp-time - fast or slow. LACP negotiation time interval - 30 ms or 1 second
+  enable-dpdk:
+    type: boolean
+    default: false
+    description: |
+      Enable DPDK fast userspace networking; this requires use of DPDK
+      supported network interface drivers and must be used in conjunction with
+      the data-port configuration option to configure each bridge with an
+      appropriate DPDK enabled network device.
+  dpdk-socket-memory:
+    type: int
+    default: 1024
+    description: |
+      Amount of hugepage memory in MB to allocate per NUMA socket in deployed
+      systems.
+
+      Only used when DPDK is enabled.
+      NOTE: Please check that the value set here is large enough to accommodate the MTU
+      size being used. For more information please refer to
+      https://docs.openvswitch.org/en/latest/topics/dpdk/memory/#shared-memory-calculations
+  dpdk-socket-cores:
+    type: int
+    default: 1
+    description: |
+      Number of cores to allocate to non-datapath DPDK threads per NUMA
+      socket in deployed systems.
+
+      Only used when DPDK is enabled.
+  dpdk-driver:
+    type: string
+    default:
+    description: |
+      Kernel userspace device driver to use for DPDK devices, valid values
+      include:
+
+        vfio-pci
+        uio_pci_generic
+
+      Only used when DPDK is enabled.
+  dpdk-runtime-libraries:
+    type: string
+    default:
+    description: |
+      Space delimited list of additional DPDK runtime libraries that should
+      be installed when DPDK is enabled.
+
+      By default, only the runtime libraries that are recommended with the
+      dpdk libraries are installed. Environments that need additional libraries
+      installed should include those library packages. The runtime libraries can
+      be defined either by the full package name (e.g. librte-pmd-bnx2x20.0)
+      or by the simple name (e.g. bnx2x). When providing the simple name, a
+      search is done of the apt-cache for a name matching `librte-*<name>*`
+      for installation and will install all matching packages that are found.
+
+      Only used when DPDK is enabled.
+  enable-hardware-offload:
+    type: boolean
+    default: false
+    description: |
+      Enable support for hardware offload of flows from Open vSwitch to
+      supported network adapters.
+
+      Enabling this option will make use of the sriov-numvfs option to
+      configure the VF functions of the physical network adapters detected in
+      each unit.
+
+      This option must not be enabled with either enable-sriov or enable-dpdk.
+
+      NOTE: Changing this value will not perform runtime changes to hardware
+      specific adaption. A reboot of the system is required to apply
+      configuration.
+  enable-sriov:
+    type: boolean
+    default: false
+    description: |
+      Enable SR-IOV NIC agent on deployed units; use with sriov-device-mappings
+      to map SR-IOV devices to underlying provider networks. Enabling this
+      option allows instances to be plugged into directly into SR-IOV VF
+      devices connected to underlying provider networks alongside the default
+      Open vSwitch networking options.
+  ovn-bridge-mappings:
+    type: string
+    default:
+    description: >
+      A space-delimited list of key-value pairs that map a physical network
+      name to a local ovs bridge that provides connectivity to that network.
+
+      The physical network name can be referenced when the administrator
+      programs the OVN logical flows either by talking directly to the
+      Northbound database or by interfacing with a Cloud Management System
+      (CMS).
+
+      Each charm unit will evaluate each key-value pair and determine if the
+      configuration is relevant for the host it is running on based on matches
+      found in the `bridge-interface-mappings` configuration option.
+
+      If a match is found the bridge will be created if it does not already
+      exist, the matched interface will be added to it and the mapping will be
+      added to the local OVSDB under the `external_ids:ovn-bridge-mappings` key
+      in the Open_vSwitch table.
+
+      An example value mapping two physical network names to two ovs bridges
+      would be:
+
+          physnet1:br-internet physnet2:br-provider
+
+      NOTE: Values in this configuration option will only have effect for units
+      that have a interface referenced in the `bridge-interface-mappings`
+      configuration option.
+  pmd-cpu-set:
+    type: string
+    default:
+    description: |
+      Comma separated list of cpus used for DPDK datapath packet processing.
+      The range and caret operators are supported.
+
+      Example: 2,4,5-9,^7,16-23,^20,^22
+
+      Only used when DPDK is enabled.
+
+      NOTE: It is recommended to avoid overlap between datapath (pmd-cpu-mask)
+      and non-datapath (dpdk-lcore-mask) cpus. The charm will go into blocked
+      state if an overlap is detected.
+  sriov-device-mappings:
+    type: string
+    default:
+    description: |
+      Space-delimited list of SR-IOV device mappings with format
+
+        <provider>:<interface>
+
+      Multiple mappings can be provided, delimited by spaces.
+  sriov-numvfs:
+    type: string
+    default: auto
+    description: |
+      Number of VF's to configure each PF with; by default, each SR-IOV PF will
+      be configured with the maximum number of VF's it can support. In the case
+      sriov-device-mappings is set, only the devices in the mapping are configured.
+      Either use a single integer to apply the same VF configuration to all
+      detected SR-IOV devices or use a per-device configuration in the following
+      format
+
+        <device>:<numvfs>
+
+      Multiple devices can be configured by providing multi values delimited by
+      spaces.
+
+      NOTE: Changing this value will have no effect on runtime configuration. A
+      manual issue of the `netplan apply` command or reboot of the system is
+      required to apply configuration.
+  new-units-paused:
+    type: boolean
+    default: false
+    description: |
+      Start new units of the application as paused.
+
+      When set to 'true' newly deployed units of the application will install
+      the charm and any packages required on the sytem, but keep any services
+      from actually starting.
+
+      To start the services the operator must run the `resume` action on each
+      unit.
+
+      This is useful for use with OpenStack for controlled unit by unit
+      migration of deployments from the legacy Neutron ML2 OVS topology to the
+      OVN topology. Both topologies make use of Open vSwitch and the 'br-int'
+      integration bridge on the hypervisor and during a migration the operator
+      may want to shut down and clean up after the ML2 OVS components before
+      the `ovn-controller` takes over and reprograms the bridge flow rules.
+  prefer-chassis-as-gw:
+    type: boolean
+    default: false
+    description: |
+      Prefer units of this application in CMS (Cloud Management System)
+      scheduling of HA chassis groups (aka. gateways) over units of other OVN
+      chassis applications present in this deployment.
+
+      By default the CMS will schedule HA chassis groups across all chassis
+      with bridge- and bridge interface mappings configured.
+
+      This configuration option would allow you to influence where gateways are
+      scheduled when all units have equal bridge- and bridge interface mapping
+      configuration.
+
+      NOTE: If none of the OVN chassis named applications in the deployment
+      have this option enabled, the CMS will fall back to schedule gateways to
+      chassis with bridge- and bridge interface mapping configured.
+
+      NOTE: It is also possible to enable this option on several OVN chassis
+      applications at the same time, e.g. on 2 out of 3.
+  nagios_context:
+    default: "juju"
+    type: string
+    description: |
+      A string that will be prepended to instance name to set the host name
+      in nagios. So for instance the hostname would be something like:
+          juju-myservice-0
+      If you're running multiple environments with the same services in them
+      this allows you to differentiate between them.
+  nagios_servicegroups:
+    default: ""
+    type: string
+    description: |
+      Comma separated list of nagios servicegroups for the service checks.
+  disable-mlockall:
+    type: boolean
+    default:
+    description: |
+      Disable Open vSwitch use of mlockall().
+
+      When mlockall() is enabled, all of ovs-vswitchd's process memory is
+      locked into physical RAM and prevented from paging. This avoids network
+      interruptions but can lead to memory exhaustion in memory-constrained
+      environments.
+
+      By default, the charm will disable mlockall() if it is running in a
+      container. Otherwise, the charm will default to mlockall() enabled if
+      it is not running in a container.
+
+      Changing this config option will restart openvswitch-switch, resulting
+      in an expected data plane outage while the service restarts.
+  vpd-device-spec:
+    type: string
+    default:
+    description: |
+      A list of specs used by the charm to identify a device to be used as a
+      primary source of Vital Product Data (VPD) containing a NIC serial number.
+      This option can be used to enable SmartNIC DPU support.
+
+      Based on the retrieved information the charm will set up a mapping between
+      a chassis hostname and a unique card serial number of a NIC in the OVN
+      southbound database. It can then used by the CMS to look up which chassis
+      should service a port plugging request based on the information provided
+      from a hypervisor host.
+
+      Multiple items can be specified in the list in order to allow for
+      hosts with different kinds of hardware or to specify the order of
+      precedence if multiple devices from the list are present on a host. This
+      should not normally happen with DPUs that only have one chip exposed.
+
+      Example: '[{"bus": "pci", "vendor_id": "15b3", "device_id": "a2d6" }]'
+  ovs-exporter-channel:
+    type: string
+    default: stable
+    description: >-
+      The snap channel to install the prometheus-ovs-exporter from. Setting
+      this option to an empty string will result in the snap not being
+      installed or removed if it has already been installed.
+  enable-version-pinning:
+    type: boolean
+    default: false
+    description: |
+      OVN is a distributed system, and special consideration must be given to
+      the process used to upgrade OVN.
+
+      In order to successfully perform a rolling upgrade, the ovn-controller
+      process needs to understand the structure of the database for the version
+      you are upgrading from and to simultaneously.
+
+      Rolling upgrades are supported as long as the span of versions used in
+      the system is within the previous and the next upstream OVN LTS version.
+
+      If you are upgrading across LTS boundaries you may need to use version
+      pinning to avoid data plane outage during the upgrade.
+  ovn-monitor-all:
+    type: boolean
+    default: false
+    description: |
+      A boolean value that tells if ovn-controller should monitor all records 
+      of tables in the OVN_Southbound database. If this option is set to false, 
+      ovn-controller will conditionally monitor only the records that are 
+      needed for the local chassis.

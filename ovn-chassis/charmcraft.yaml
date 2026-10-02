@@ -1,7 +1,11 @@
 type: charm
 
 parts:
+  shared-lib:
+    plugin: dump
+    source: ../lib
   charm:
+    after: [shared-lib]
     source: src/
     plugin: reactive
     reactive-charm-build-arguments:
@@ -24,8 +28,8 @@ parts:
     build-snaps:
     - charm/latest/edge
     build-environment:
-    - CHARM_INTERFACES_DIR: $CRAFT_PROJECT_DIR/interfaces/
-    - CHARM_LAYERS_DIR: $CRAFT_PROJECT_DIR/layers/
+    - CHARM_INTERFACES_DIR: $CRAFT_STAGE/lib/interfaces/
+    - CHARM_LAYERS_DIR: $CRAFT_STAGE/lib/layers/
     - MAKEFLAGS: -j$(nproc)
     - CARGO_HTTP_MULTIPLEXING: 'false'
     - MATURIN_NO_INSTALL_RUST: "1"
