@@ -99,6 +99,25 @@ See the [Deferred service events][cdg-deferred-service-events] page in the
 [OpenStack Charms Deployment Guide][cdg] for an in-depth treatment of this
 feature.
 
+## Flow restore wait
+
+While `other_config:flow-restore-wait` is set in the local Open vSwitch
+database, `ovs-vswitchd` neither sends nor receives packets to or from the
+datapath. OVN 24.03.8 leaves the option set on a chassis that is part of a
+HA chassis group so that an unexpected reboot starts `ovs-vswitchd` in wait
+mode, and only clears it once `ovn-controller` has connected to the
+Southbound database. A chassis that reaches the Southbound database over
+its own datapath can therefore never clear it, and stays cut off after a
+reboot ([LP #2169426][lp-2169426]).
+
+To break that deadlock the charm installs
+`/usr/local/sbin/clear-ovn-flow-restore-wait` and runs it from a
+`ovn-controller.service` drop-in before `ovn-controller` starts. The script
+only clears the option when `external_ids:ovn-managed-flow-restore-wait`
+marks it as owned by OVN, so a `flow-restore-wait` set by `ovs-ctl restart`
+for a hot upgrade of Open vSwitch is left alone. It does nothing on OVN
+versions that do not set the option.
+
 # Bugs
 
 Please report bugs on [Launchpad][lp-ovn-dedicated-chassis].
@@ -116,3 +135,4 @@ For general questions please refer to the [OpenStack Charm Guide][cg].
 [ovn-chassis-charm]: https://jaas.ai/ovn-chassis
 [openstack-base-bundle]: https://github.com/openstack-charmers/openstack-bundles/blob/master/development/openstack-base-bionic-ussuri-ovn/bundle.yaml
 [cdg-deferred-service-events]: https://docs.openstack.org/project-deploy-guide/charm-deployment-guide/latest/deferred-events.html
+[lp-2169426]: https://bugs.launchpad.net/bugs/2169426

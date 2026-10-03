@@ -61,6 +61,49 @@ sys.modules['charms.reactive.relations'] = charms.reactive.relations
 sys.modules['charms.leadership'] = charms.leadership
 netaddr = mock.MagicMock()
 sys.modules['netaddr'] = netaddr
+
+
+# The real base classes live in the ``layer:ovn`` build-time layer, which is
+# assembled by charmcraft and is not available here.  Provide minimal stand
+# ins so that ``charm.openstack.ovn_dedicated_chassis`` can be imported and
+# its own overrides exercised.  A MagicMock will not do, as the charm
+# subclasses these.  They deliberately mirror the parts of the real classes
+# the charm cooperates with, in particular that ``DeferredEventMixin.install``
+# takes a ``check_deferred_events`` keyword argument.
+class _FakeOVNConfigurationAdapter(object):
+    pass
+
+
+class _FakeBaseOVNChassisCharm(object):
+
+    def __init__(self, **kwargs):
+        pass
+
+    def configure_source(self):
+        pass
+
+    def install(self):
+        pass
+
+    def upgrade_charm(self):
+        pass
+
+    def run(self, *args):
+        pass
+
+
+class _FakeDeferredEventMixin(object):
+
+    def install(self, check_deferred_events=True):
+        super().install()
+
+
+charms.ovn_charm = mock.MagicMock()
+charms.ovn_charm.OVNConfigurationAdapter = _FakeOVNConfigurationAdapter
+charms.ovn_charm.BaseOVNChassisCharm = _FakeBaseOVNChassisCharm
+charms.ovn_charm.DeferredEventMixin = _FakeDeferredEventMixin
+sys.modules['charms.ovn_charm'] = charms.ovn_charm
+
 import reactive
 reactive.ovn_chassis_charm_handlers = mock.MagicMock()
 reactive.ovn_chassis_charm_handlers.OVN_CHASSIS_ENABLE_HANDLERS_FLAG = \
