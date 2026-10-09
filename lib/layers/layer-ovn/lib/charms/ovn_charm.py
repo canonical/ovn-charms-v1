@@ -13,6 +13,7 @@
 # limitations under the License.
 import collections
 import contextlib
+import glob
 import ipaddress
 import json
 import jsonschema
@@ -38,11 +39,23 @@ from charms.layer import snap
 
 CERT_RELATION = 'certificates'
 
+# Where the kernel exposes the hugepage pools it has reserved.
+HUGEPAGES_SYSFS = '/sys/kernel/mm/hugepages'
+
 # Open vSwitch datapath types.  ``system`` is the in-kernel datapath and
 # ``netdev`` the DPDK userspace datapath, both provided by upstream Open
-# vSwitch.
+# vSwitch.  ``doca`` is a third datapath, provided only by NVIDIA's OVS-DOCA
+# build of Open vSwitch.
+DATAPATH_TYPE_DOCA = 'doca'
 DATAPATH_TYPE_NETDEV = 'netdev'
 DATAPATH_TYPE_SYSTEM = 'system'
+
+# Interface type and options for a port on the ``doca`` datapath.  OVS-DOCA
+# detects link state changes by polling unless told to use the link state
+# change interrupt, and a bond member going down should be acted on when it
+# happens rather than at the next poll.
+INTERFACE_TYPE_DOCA = 'doca'
+DOCA_INTERFACE_OPTIONS = {'dpdk-lsc-interrupt': 'true'}
 
 # The ``doca-networking`` meta package pulls in the DOCA-OFED drivers, the
 # DOCA flow libraries and the OVS-DOCA build of Open vSwitch, which together
@@ -90,6 +103,30 @@ def is_deferred_event_permitted(config_rendered, enable_auto_restarts_changed,
             enable_auto_restarts_changed or is_restart_permitted):
         return True
     return False
+
+
+def ifdata_for_datapath(ifdata, datapath_type):
+    """Adapt interface data to the datapath type in use.
+
+    ``BridgePortInterfaceMap`` resolves the interface type from the
+    ``enable-dpdk`` configuration option, and only knows about the interface
+    types of upstream Open vSwitch, so it cannot express the type a port on
+    the ``doca`` datapath needs.
+
+    :param ifdata: Interface data as resolved by ``BridgePortInterfaceMap``
+    :type ifdata: Dict[str,any]
+    :param datapath_type: Datapath type of the bridge the port is on
+    :type datapath_type: str
+    :returns: Interface data
+    :rtype: Dict[str,any]
+    """
+    if datapath_type != DATAPATH_TYPE_DOCA:
+        return ifdata
+    return {
+        **ifdata,
+        'type': INTERFACE_TYPE_DOCA,
+        'options': {**ifdata.get('options', {}), **DOCA_INTERFACE_OPTIONS},
+    }
 
 
 class DeferredEventMixin():
@@ -947,6 +984,29 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
             message = 'Fix overlap between dpdk-lcore-mask and pmd-cpu-mask.'
             return 'blocked', message
 
+        # Probing the datapath types requires a database to talk to, so only
+        # ask when the answer can change the status.
+        if (self.options.install_doca and
+                ch_core.host.service_running('ovsdb-server')):
+            if self.datapath_type != DATAPATH_TYPE_DOCA:
+                return ('blocked',
+                        'install-doca is enabled but ovs-vswitchd does not '
+                        'offer the "{}" datapath, a reboot is required.'
+                        .format(DATAPATH_TYPE_DOCA))
+            # Only asked of a unit configured for DOCA, to keep the
+            # cost of this check off everyone else.  A host provisioned
+            # with OVS-DOCA already on it arranged its own hugepages.
+            if not self.hugepages_reserved():
+                return ('blocked',
+                        'the "{}" datapath allocates from hugepages and '
+                        'none are reserved on this machine.'
+                        .format(DATAPATH_TYPE_DOCA))
+            if self.datapath_type_pending():
+                return ('blocked',
+                        'Open vSwitch is not on the "{}" datapath yet, '
+                        'resume the unit to apply the change.'
+                        .format(DATAPATH_TYPE_DOCA))
+
         return None, None
 
     def states_to_check(self, required_relations=None):
@@ -1126,6 +1186,26 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
             for device in devices
         ])
 
+    def ovs_datapath_types(self):
+        """Datapath types the running ``ovs-vswitchd`` offers.
+
+        On startup ``ovs-vswitchd`` publishes the datapath types it was built
+        with, and successfully initialized, in the ``datapath_types`` column
+        of the ``Open_vSwitch`` table, which makes this an accurate runtime
+        capability probe.
+
+        :returns: Supported datapath types
+        :rtype: Set[str]
+        """
+        for row in ch_ovsdb.SimpleOVSDB('ovs-vsctl').open_vswitch:
+            datapath_types = row.get('datapath_types', [])
+            # SimpleOVSDB has no schema knowledge and presents a set column
+            # holding a single value as a plain string.
+            if isinstance(datapath_types, str):
+                datapath_types = [datapath_types]
+            return set(datapath_types)
+        return set()
+
     @property
     def datapath_type(self):
         """Open vSwitch datapath type to use for this unit's resources.
@@ -1135,9 +1215,23 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         ``ovn-controller`` cannot disagree about which datapath this unit
         runs on.
 
+        The DOCA datapath is taken from what ``ovs-vswitchd`` offers rather
+        than from the ``install-doca`` configuration option alone, because
+        the two legitimately disagree until the reboot that activates the
+        DOCA kernel modules has happened.  ``ovn-controller`` propagates the
+        type without validating it, so a unit that claimed a datapath its
+        ``ovs-vswitchd`` cannot open would be left with an integration
+        bridge that never instantiates.
+
+        Note that ``doca`` is distinct from, and not a synonym for, the
+        ``netdev`` datapath used by DPDK.
+
         :returns: Datapath type
         :rtype: str
         """
+        if (self.options.install_doca and
+                DATAPATH_TYPE_DOCA in self.ovs_datapath_types()):
+            return DATAPATH_TYPE_DOCA
         if self.options.enable_dpdk:
             return DATAPATH_TYPE_NETDEV
         return DATAPATH_TYPE_SYSTEM
@@ -1210,6 +1304,45 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
              if self.options.enable_hardware_offload else None),
         ))
 
+    def configure_ovs_doca(self):
+        """Configure the DOCA offload provider in Open vSwitch.
+
+        ``other_config:doca-init`` is what makes ``ovs-vswitchd`` offer the
+        DOCA datapath at all, and is only read when the daemon starts.
+
+        :returns: Whether something changed
+        :rtype: bool
+        """
+        return self._reconcile_open_vswitch('other_config', (
+            ('doca-init', 'true' if self.options.install_doca else None),))
+
+    def configure_ovs_datapath(self):
+        """Configure the datapath type defaults in Open vSwitch.
+
+        ``external_ids:ovn-bridge-datapath-type`` is what makes
+        ``ovn-controller`` manage the integration bridge with the datapath
+        this unit runs on.  It creates ``br-int`` without a datapath type and
+        then stamps the value resolved from this external-id onto the bridge,
+        falling back to ``system`` when it is unset.  Because it re-applies
+        the value on every iteration, setting this also repairs a ``br-int``
+        it created before this charm got to run.
+
+        ``other_config:default-datapath-type`` is an OVS-DOCA extension that
+        supplies the datapath type for resources created without an explicit
+        one.  It is not set by the DOCA packages, and it is only consulted at
+        creation time, so it has to be in the database before anything else
+        creates resources.  Upstream Open vSwitch ignores the key.
+
+        :returns: Whether something changed
+        :rtype: bool
+        """
+        datapath_type = self.datapath_type
+        return (
+            self._reconcile_open_vswitch('external_ids', (
+                ('ovn-bridge-datapath-type', datapath_type),)) |
+            self._reconcile_open_vswitch('other_config', (
+                ('default-datapath-type', datapath_type),)))
+
     def configure_ovs(self, sb_conn, mlockall_changed):
         """Global Open vSwitch configuration tasks.
 
@@ -1236,6 +1369,15 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
             # Must make sure the service runs otherwise calls to ``ovs-vsctl``
             # will hang.
             ch_core.host.service_start('openvswitch-switch')
+
+        if self.configure_ovs_doca():
+            # Act on it immediately, as the datapath type resolved below is
+            # taken from what the running ``ovs-vswitchd`` offers.
+            ch_core.host.service_restart('openvswitch-switch')
+        # The datapath defaults have to be in the database before
+        # ``external-ids:ovn-remote`` is set below, as that is what makes the
+        # local ``ovn-controller`` start creating resources.
+        self.configure_ovs_datapath()
 
         restart_required = False
         # NOTE(fnordahl): Due to what is probably a bug in Open vSwitch
@@ -1349,6 +1491,52 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
             return False
         return True
 
+    def charm_managed_bridges(self):
+        """Bridges this charm created.
+
+        :returns: Bridge rows
+        :rtype: Iterator[Dict[str,any]]
+        """
+        return ch_ovsdb.SimpleOVSDB('ovs-vsctl').bridge.find(
+            'external_ids:charm-ovn-chassis=managed')
+
+    def hugepages_reserved(self):
+        """Hugepage sizes this machine has pages reserved for.
+
+        The userspace datapaths allocate their memory from hugepages, which
+        are reserved through kernel parameters when the machine is
+        provisioned.
+
+        :returns: Map of hugepage size in kB to the number of pages
+        :rtype: Dict[int,int]
+        """
+        reserved = {}
+        for path in glob.glob(os.path.join(HUGEPAGES_SYSFS, 'hugepages-*kB')):
+            try:
+                with open(os.path.join(path, 'nr_hugepages')) as fp:
+                    nr_hugepages = int(fp.read().strip())
+            except (OSError, ValueError):
+                continue
+            if nr_hugepages:
+                size = os.path.basename(path).split('-')[1]
+                reserved[int(size[:-len('kB')])] = nr_hugepages
+        return reserved
+
+    def datapath_type_pending(self):
+        """Whether resources are not on the datapath they should be on.
+
+        The datapath a unit resolves to changes when the DOCA kernel modules
+        are activated by a reboot, and Juju runs no hook when a machine
+        boots, so the database can hold a datapath type the unit has moved
+        on from until the next hook execution.
+
+        :returns: Whether a change is outstanding
+        :rtype: bool
+        """
+        datapath_type = self.datapath_type
+        return any(bridge.get('datapath_type') != datapath_type
+                   for bridge in self.charm_managed_bridges())
+
     def configure_bridges(self):
         """Configure Open vSwitch bridges ports and interfaces."""
         if self.check_if_paused() != (None, None):
@@ -1381,9 +1569,15 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
                     ovn_br_map_str += ','
                 ovn_br_map_str += '{}:{}'.format(network, bridge)
 
-        bridges = ch_ovsdb.SimpleOVSDB('ovs-vsctl').bridge
+        datapath_type = self.datapath_type
+        restart_required = False
         ports = ch_ovsdb.SimpleOVSDB('ovs-vsctl').port
-        for bridge in bridges.find('external_ids:charm-ovn-chassis=managed'):
+        for bridge in self.charm_managed_bridges():
+            if bridge.get('datapath_type') != datapath_type:
+                # ``ovs-vswitchd`` opens the datapath when it instantiates a
+                # bridge, so a bridge that moves to a different datapath type
+                # stays in error until the daemon reconfigures from scratch.
+                restart_required = True
             # remove bridges and ports that are managed by us and no longer in
             # config
             if bridge['name'] not in bim and bridge['name'] != 'br-int':
@@ -1409,7 +1603,7 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         brdata = {
             'external-ids': {'charm-ovn-chassis': 'managed'},
             'protocols': 'OpenFlow13,OpenFlow15',
-            'datapath-type': self.datapath_type,
+            'datapath-type': datapath_type,
         }
         # we always update the integration bridge to make sure it has settings
         # apropriate for the current charm configuration
@@ -1438,11 +1632,11 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
             for port in bim[br]:
                 ifdatamap = bim.get_ifdatamap(br, port)
                 ifdatamap = {
-                    port: {
-                        **ifdata,
+                    ifname: {
+                        **ifdata_for_datapath(ifdata, datapath_type),
                         **{'external-ids': {'charm-ovn-chassis': br}},
                     }
-                    for port, ifdata in ifdatamap.items()
+                    for ifname, ifdata in ifdatamap.items()
                 }
 
                 if len(ifdatamap) > 1:
@@ -1469,6 +1663,10 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
             opvs.set('.', 'external_ids:ovn-cms-options', ','.join(cms_opts))
         else:
             opvs.remove('.', 'external_ids', 'ovn-cms-options')
+
+        if restart_required:
+            deferred_events.deferrable_svc_restart(
+                'ovs-vswitchd', reason='datapath type changed')
 
     def _get_ovn_cms_options(self):
         """Get options to be passed into ovn-cms-options"""

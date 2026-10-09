@@ -475,6 +475,35 @@ class TestOVNConfigurationAdapterDPDKOverlap(test_utils.PatchHelper):
                             ' and pmd-cpu-mask.'})
 
 
+class TestIfdataForDatapath(test_utils.PatchHelper):
+
+    def test_passthrough(self):
+        # BridgePortInterfaceMap already resolves the interface types of
+        # upstream Open vSwitch.
+        ifdata = {'type': 'dpdk', 'options': {'dpdk-devargs': '0000:42:01.0'}}
+        for datapath_type in ('system', 'netdev'):
+            self.assertEqual(
+                ovn_charm.ifdata_for_datapath(ifdata, datapath_type), ifdata)
+
+    def test_doca(self):
+        self.assertEqual(
+            ovn_charm.ifdata_for_datapath({'mtu-request': 9000}, 'doca'),
+            {
+                'mtu-request': 9000,
+                'type': 'doca',
+                'options': {'dpdk-lsc-interrupt': 'true'},
+            })
+
+    def test_doca_retains_options(self):
+        self.assertEqual(
+            ovn_charm.ifdata_for_datapath(
+                {'options': {'keep': 'this'}}, 'doca'),
+            {
+                'type': 'doca',
+                'options': {'keep': 'this', 'dpdk-lsc-interrupt': 'true'},
+            })
+
+
 class Helper(test_utils.PatchHelper):
 
     def setUp(self, release=None, is_flag_set_return_value=False, config=None):
@@ -1975,6 +2004,10 @@ class TestDOCAOVNChassisCharm(Helper):
             'doca-url': 'https://example.com/doca-host.deb',
             'bridge-interface-mappings': 'br-data:bond0',
             'ovn-bridge-mappings': 'physnet1:br-data',
+            'prefer-chassis-as-gw': False,
+            'ovn-monitor-all': False,
+            'enable-version-pinning': False,
+            'vpd-device-spec': '',
             'ovn-source': 'distro',
         })
 
@@ -1985,6 +2018,142 @@ class TestDOCAOVNChassisCharm(Helper):
     def test_purge_packages(self):
         # The DOCA packages are only purged when they are not wanted.
         self.assertNotIn('doca-networking', self.target.purge_packages)
+
+    def patch_datapath_types(self, datapath_types):
+        """Present ``datapath_types`` as offered by ovs-vswitchd.
+
+        :param datapath_types: Datapath types to present.
+        :type datapath_types: any
+        :returns: The mocked ``open_vswitch`` table object.
+        :rtype: mock.MagicMock
+        """
+        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
+        ovsdb = mock.MagicMock()
+        ovsdb.open_vswitch.__iter__.return_value = [
+            {'datapath_types': datapath_types}]
+        self.SimpleOVSDB.return_value = ovsdb
+        return ovsdb
+
+    def test_ovs_datapath_types(self):
+        self.patch_datapath_types(['doca', 'netdev', 'system'])
+        self.assertEqual(self.target.ovs_datapath_types(),
+                         {'doca', 'netdev', 'system'})
+
+    def test_ovs_datapath_types_single_value(self):
+        # SimpleOVSDB has no schema knowledge and collapses a single valued
+        # set column to a plain string.
+        self.patch_datapath_types('system')
+        self.assertEqual(self.target.ovs_datapath_types(), {'system'})
+
+    def test_ovs_datapath_types_empty_table(self):
+        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
+        ovsdb = mock.MagicMock()
+        ovsdb.open_vswitch.__iter__.return_value = []
+        self.SimpleOVSDB.return_value = ovsdb
+        self.assertEqual(self.target.ovs_datapath_types(), set())
+
+    def test_datapath_type(self):
+        self.patch_datapath_types(['system', 'netdev', 'doca'])
+        self.assertEqual(self.target.datapath_type, 'doca')
+
+    def test_datapath_type_awaiting_reboot(self):
+        # The DOCA kernel modules only take effect on a fresh boot, and
+        # claiming a datapath ovs-vswitchd cannot open would leave br-int
+        # unable to instantiate.
+        self.patch_datapath_types(['system', 'netdev'])
+        self.assertEqual(self.target.datapath_type, 'system')
+
+    def test_custom_assess_status_last_check(self):
+        self.patch_datapath_types(['system', 'netdev', 'doca'])
+        self.patch_object(ovn_charm.ch_core.host, 'service_running',
+                          return_value=True)
+        self.patch_target('hugepages_reserved', return_value={1048576: 16})
+        self.patch_target('datapath_type_pending', return_value=False)
+        self.assertEqual(self.target.custom_assess_status_last_check(),
+                         (None, None))
+
+    def test_hugepages_reserved(self):
+        self.patch_object(ovn_charm.glob, 'glob', return_value=[
+            '/sys/kernel/mm/hugepages/hugepages-1048576kB'])
+        with mock.patch('builtins.open', mock.mock_open(read_data='16\n')):
+            self.assertEqual(self.target.hugepages_reserved(), {1048576: 16})
+
+    def test_hugepages_reserved_none(self):
+        # A pool exists for the size but nothing is reserved in it.
+        self.patch_object(ovn_charm.glob, 'glob', return_value=[
+            '/sys/kernel/mm/hugepages/hugepages-2048kB'])
+        with mock.patch('builtins.open', mock.mock_open(read_data='0\n')):
+            self.assertEqual(self.target.hugepages_reserved(), {})
+
+    def test_custom_assess_status_last_check_without_hugepages(self):
+        self.patch_datapath_types(['system', 'doca'])
+        self.patch_object(ovn_charm.ch_core.host, 'service_running',
+                          return_value=True)
+        self.patch_target('hugepages_reserved', return_value={})
+        status, message = self.target.custom_assess_status_last_check()
+        self.assertEqual(status, 'blocked')
+        self.assertIn('hugepages', message)
+
+    def test_custom_assess_status_last_check_awaiting_reboot(self):
+        self.patch_datapath_types(['system', 'netdev'])
+        self.patch_object(ovn_charm.ch_core.host, 'service_running',
+                          return_value=True)
+        status, message = self.target.custom_assess_status_last_check()
+        self.assertEqual(status, 'blocked')
+        self.assertIn('reboot', message)
+
+    def test_custom_assess_status_last_check_no_database(self):
+        # Probing the datapath types requires a database to talk to.
+        self.patch_object(ovn_charm.ch_core.host, 'service_running',
+                          return_value=False)
+        self.assertEqual(self.target.custom_assess_status_last_check(),
+                         (None, None))
+
+    def test_configure_ovs_doca(self):
+        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
+        ovsdb = mock.MagicMock()
+        ovsdb.open_vswitch.__iter__.return_value = [{'other_config': {}}]
+        self.SimpleOVSDB.return_value = ovsdb
+        self.assertTrue(self.target.configure_ovs_doca())
+        ovsdb.open_vswitch.set.assert_called_once_with(
+            '.', 'other_config:doca-init', 'true')
+
+    def test_configure_ovs_datapath(self):
+        self.patch_target('ovs_datapath_types', return_value={'doca'})
+        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
+        ovsdb = mock.MagicMock()
+        ovsdb.open_vswitch.__iter__.return_value = [
+            {'external_ids': {}, 'other_config': {}}]
+        self.SimpleOVSDB.return_value = ovsdb
+        self.assertTrue(self.target.configure_ovs_datapath())
+        ovsdb.open_vswitch.set.assert_has_calls([
+            mock.call('.', 'external_ids:ovn-bridge-datapath-type', 'doca'),
+            mock.call('.', 'other_config:default-datapath-type', 'doca'),
+        ], any_order=True)
+
+    def test_datapath_type_pending(self):
+        self.patch_target('ovs_datapath_types', return_value={'doca'})
+        self.patch_target('charm_managed_bridges', return_value=[
+            {'name': 'br-int', 'datapath_type': 'system'}])
+        self.assertTrue(self.target.datapath_type_pending())
+
+    def test_datapath_type_pending_in_sync(self):
+        self.patch_target('ovs_datapath_types', return_value={'doca'})
+        self.patch_target('charm_managed_bridges', return_value=[
+            {'name': 'br-int', 'datapath_type': 'doca'}])
+        self.assertFalse(self.target.datapath_type_pending())
+
+    def test_custom_assess_status_last_check_pending(self):
+        # The datapath became available on the reboot, and no hook has run
+        # to move Open vSwitch onto it yet.
+        self.patch_datapath_types(['system', 'doca'])
+        self.patch_object(ovn_charm.ch_core.host, 'service_running',
+                          return_value=True)
+        self.patch_target('hugepages_reserved', return_value={1048576: 16})
+        self.patch_target('datapath_type_pending', return_value=True)
+        status, message = self.target.custom_assess_status_last_check()
+        self.assertEqual(status, 'blocked')
+        self.assertIn('resume', message)
 
     def test_configure_doca_source(self):
         self.patch_object(ovn_charm.reactive, 'is_flag_set',
@@ -2075,6 +2244,107 @@ class TestDOCAOVNChassisCharm(Helper):
         self.patch_target('run')
         self.target.configure_doca_source()
         self.assertTrue(self.run.called)
+
+    def test_configure_ovs_restarts_for_doca_init(self):
+        # ``doca-init`` is only read when ovs-vswitchd starts, and the
+        # datapath type is resolved from what the running daemon offers.
+        self.patch_target('run')
+        self.patch_object(ovn_charm.OVNConfigurationAdapter, 'ovn_key')
+        self.patch_object(ovn_charm.OVNConfigurationAdapter, 'ovn_cert')
+        self.patch_object(ovn_charm.OVNConfigurationAdapter, 'ovn_ca_cert')
+        self.patch_object(ovn_charm.ch_core.host, 'service_restart')
+        self.patch_object(ovn_charm.ch_core.host, 'service_start')
+        self.patch_target('get_data_ip')
+        self.patch_target('get_ovs_hostname')
+        self.patch_target('check_if_paused', return_value=(None, None))
+        self.patch_target('configure_ovs_doca', return_value=True)
+        self.patch_target('configure_ovs_datapath')
+        self.patch_target('configure_ovs_hw_offload', return_value=False)
+        self.patch_target('configure_ovs_dpdk', return_value=False)
+        self.target.configure_ovs('fake-sb-conn-str', False)
+        self.service_restart.assert_called_once_with('openvswitch-switch')
+        # The datapath defaults must be seeded before ovn-remote is set, as
+        # that is what makes ovn-controller start creating resources.
+        self.configure_ovs_datapath.assert_called_once_with()
+
+    def test_configure_bridges(self):
+        self.patch_target('ovs_datapath_types', return_value={'doca'})
+        self.patch_object(ovn_charm, 'deferred_events')
+        self.patch_object(ovn_charm.os_context, 'BridgePortInterfaceMap')
+        dict_bpi = {
+            'br-data': {        # bridge
+                'bond0': {      # port
+                                # interface(s) with interface data
+                    'bond0': {'mtu-request': 9000},
+                },
+            },
+        }
+        mock_bpi = mock.MagicMock()
+        mock_bpi.items.return_value = dict_bpi.items()
+        mock_bpi.__iter__.return_value = dict_bpi.__iter__()
+        mock_bpi.__contains__.side_effect = dict_bpi.__contains__
+        mock_bpi.__getitem__.side_effect = lambda x: dict_bpi.__getitem__(x)
+        mock_bpi.get_ifdatamap.side_effect = lambda x, y: {
+            k: v for k, v in dict_bpi[x][y].items()}
+        self.BridgePortInterfaceMap.return_value = mock_bpi
+        self.patch_object(ovn_charm.os_context, 'BondConfig')
+        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
+        ovsdb = mock.MagicMock()
+        ovsdb.port.find.return_value = []
+        self.SimpleOVSDB.return_value = ovsdb
+        self.patch_target('charm_managed_bridges', return_value=[
+            {'name': 'br-int', 'datapath_type': 'system'}])
+        self.patch_object(ovn_charm.ch_ovs, 'add_bridge')
+        self.patch_object(ovn_charm.ch_ovs, 'add_bridge_port')
+        self.patch_target('check_if_paused', return_value=(None, None))
+        self.target.configure_bridges()
+        self.add_bridge.assert_has_calls([
+            mock.call(
+                'br-int',
+                brdata={
+                    'external-ids': {'charm-ovn-chassis': 'managed'},
+                    'datapath-type': 'doca',
+                    'protocols': 'OpenFlow13,OpenFlow15',
+                    'fail-mode': 'secure',
+                    'other-config': {'disable-in-band': 'true'},
+                }),
+            mock.call(
+                'br-data',
+                brdata={
+                    'external-ids': {'charm-ovn-chassis': 'managed'},
+                    'datapath-type': 'doca',
+                    'protocols': 'OpenFlow13,OpenFlow15',
+                    'fail-mode': 'standalone',
+                }),
+        ], any_order=True)
+        self.add_bridge_port.assert_called_once_with(
+            'br-data', 'bond0', ifdata={
+                'mtu-request': 9000,
+                'type': 'doca',
+                'options': {'dpdk-lsc-interrupt': 'true'},
+                'external-ids': {'charm-ovn-chassis': 'br-data'}},
+            linkup=True, promisc=None, portdata={
+                'external-ids': {'charm-ovn-chassis': 'br-data'}})
+        # The integration bridge was on another datapath, which
+        # ovs-vswitchd only picks up when it reconfigures from scratch.
+        ovn_charm.deferred_events.deferrable_svc_restart \
+            .assert_called_once_with(
+                'ovs-vswitchd', reason='datapath type changed')
+
+    def test_configure_bridges_no_restart_when_in_sync(self):
+        self.patch_target('ovs_datapath_types', return_value={'doca'})
+        self.patch_object(ovn_charm, 'deferred_events')
+        self.patch_object(ovn_charm.os_context, 'BridgePortInterfaceMap')
+        self.BridgePortInterfaceMap.return_value = {}
+        self.patch_object(ovn_charm.os_context, 'BondConfig')
+        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
+        self.patch_target('charm_managed_bridges', return_value=[
+            {'name': 'br-int', 'datapath_type': 'doca'}])
+        self.patch_object(ovn_charm.ch_ovs, 'add_bridge')
+        self.patch_target('check_if_paused', return_value=(None, None))
+        self.target.configure_bridges()
+        self.assertFalse(
+            ovn_charm.deferred_events.deferrable_svc_restart.called)
 
     def patch_install(self):
         self.patch_object(ovn_charm.reactive, 'set_flag')
