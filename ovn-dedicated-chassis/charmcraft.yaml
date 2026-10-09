@@ -28,8 +28,8 @@ parts:
     build-snaps:
       - charm/latest/edge
     build-environment:
-      - CHARM_INTERFACES_DIR: $CRAFT_STAGE/lib/interfaces/
-      - CHARM_LAYERS_DIR: $CRAFT_STAGE/lib/layers/
+      - CHARM_INTERFACES_DIR: $CRAFT_STAGE/interfaces/
+      - CHARM_LAYERS_DIR: $CRAFT_STAGE/layers/
       - MAKEFLAGS: -j$(nproc)
       - CARGO_HTTP_MULTIPLEXING: "false"
       - MATURIN_NO_INSTALL_RUST: "1"
