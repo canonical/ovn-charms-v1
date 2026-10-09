@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import collections
+import contextlib
 import ipaddress
 import json
 import jsonschema
@@ -42,6 +43,20 @@ CERT_RELATION = 'certificates'
 # vSwitch.
 DATAPATH_TYPE_NETDEV = 'netdev'
 DATAPATH_TYPE_SYSTEM = 'system'
+
+# The ``doca-networking`` meta package pulls in the DOCA-OFED drivers, the
+# DOCA flow libraries and the OVS-DOCA build of Open vSwitch, which together
+# make up everything needed for hardware offload to a ConnectX or BlueField
+# adapter.  ``mlnx-fw-updater`` is not a dependency of it, but the DOCA
+# libraries expect adapter firmware from the same DOCA release.
+DOCA_METAPACKAGE = 'doca-networking'
+DOCA_PACKAGES = [DOCA_METAPACKAGE, 'mlnx-fw-updater']
+
+# The package installed from ``doca-url``, which configures the archive the
+# packages above are installed from, and where it is downloaded to.
+DOCA_HOST_PACKAGE = 'doca-host'
+DOCA_HOST_DEB = '/tmp/doca-host.deb'
+
 _DEFERABLE_SVC_LIST = ['openvswitch-switch', 'ovn-controller', 'ovn-host',
                        'ovs-vswitchd', 'ovsdb-server', 'ovs-record-hostname']
 
@@ -448,6 +463,9 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         ]),
     }
     nova_vhost_user_file = '/etc/tmpfiles.d/nova-ovs-vhost-user.conf'
+    # Set once the DOCA archive has been configured, as more than one
+    # handler may ask for an install in the same hook execution.
+    _doca_source_configured = False
     release_pkg = 'ovn-host'
     adapters_class = OVNChassisCharmRelationAdapters
     configuration_class = OVNConfigurationAdapter
@@ -550,6 +568,8 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         if self.options.enable_dpdk:
             _packages.extend(['openvswitch-switch-dpdk'])
             _packages.extend(self.additional_dpdk_libraries)
+        if self.options.install_doca:
+            _packages.extend(DOCA_PACKAGES)
         if self.enable_openstack:
             if self.options.enable_sriov:
                 _packages.append('neutron-sriov-agent')
@@ -569,6 +589,8 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         _purge_packages = ['mlnx-switchdev-mode', 'sriov-netplan-shim']
         if not self.options.enable_dpdk:
             _purge_packages.extend(['openvswitch-switch-dpdk'])
+        if not self.options.install_doca:
+            _purge_packages.extend(DOCA_PACKAGES)
         return _purge_packages
 
     @property
@@ -670,6 +692,32 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
             ch_fetch.add_source(self.options._ovn_source)
             ch_fetch.apt_update(fatal=True)
 
+    def configure_doca_source(self):
+        """Configure the NVIDIA DOCA archive.
+
+        The archive is configured by a package downloaded from ``doca-url``
+        at runtime, as the Canonical DOCA-OFED PPA is only available for
+        releases newer than Noble.
+
+        Leaving ``doca-url`` unset hands this over to the operator, for
+        instance when the archive is already configured by the image a unit
+        was provisioned from, when the package has to be fetched from
+        somewhere the unit cannot reach, or when a local mirror is used.
+        """
+        if not (self.options.install_doca and self.options.doca_url):
+            return
+        if self._doca_source_configured:
+            return
+        if (not reactive.is_flag_set('config.changed.doca-url') and
+                not ch_fetch.filter_installed_packages(
+                    [DOCA_HOST_PACKAGE])):
+            # The archive this unit is configured for is already in place.
+            return
+        self.run('wget', '-O', DOCA_HOST_DEB, self.options.doca_url)
+        self.run('dpkg', '-i', DOCA_HOST_DEB)
+        ch_fetch.apt_update(fatal=True)
+        self._doca_source_configured = True
+
     def configure_sources(self):
         """Configure package sources for OVN charms.
 
@@ -694,13 +742,66 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         Ref: https://github.com/juju/charm-helpers/commit/982319b136b
         """
         self.configure_ovn_source()
+        self.configure_doca_source()
         if self.source_config_key:
             self.configure_source()
+
+    def doca_packages_available(self):
+        """Whether the DOCA packages can be installed on this unit.
+
+        :returns: Whether an archive offering them is configured
+        :rtype: bool
+        """
+        try:
+            ch_fetch.apt_cache()[DOCA_METAPACKAGE]
+        except KeyError:
+            return False
+        return True
+
+    def doca_packages_changing(self):
+        """Whether this run installs or removes the DOCA packages.
+
+        :returns: Whether the package set is about to change
+        :rtype: bool
+        """
+        installed = not ch_fetch.filter_installed_packages(
+            [DOCA_METAPACKAGE])
+        return self.options.install_doca != installed
+
+    @contextlib.contextmanager
+    def ovn_controller_stopped(self):
+        """Run the wrapped block with ``ovn-controller`` stopped.
+
+        A running ``ovn-controller`` would keep reconciling the Open vSwitch
+        database against daemons that are being replaced underneath it.  On
+        the way down it withdraws its port bindings, chassis record and
+        tunnel ports.
+
+        It does not withdraw the patch ports linking the integration bridge
+        to the physical bridges, as those are only garbage collected while
+        the daemon runs.  They are left behind attached to the datapath the
+        bridges had before the change and can need removing by hand, which
+        is the main reason to keep this window as short as possible.  Should
+        that get resolved further down the stack, this method can go away.
+
+        :returns: Context manager
+        """
+        ch_core.host.service_stop('ovn-controller')
+        try:
+            yield
+        finally:
+            ch_core.host.service_start('ovn-controller')
 
     def install(self):
         """Extend the default install method."""
         self.configure_sources()
-        super().install()
+        doca_changing = self.doca_packages_changing()
+        with contextlib.ExitStack() as stack:
+            if doca_changing:
+                # Enabling or disabling DOCA replaces the packages that
+                # provide Open vSwitch itself.
+                stack.enter_context(self.ovn_controller_stopped())
+            super().install()
 
         if (not reactive.is_flag_set('charm.installed') and
                 self.options.mlockall_disabled):
@@ -735,7 +836,8 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         else:
             self.run('update-alternatives', '--set', 'ovs-vswitchd',
                      '/usr/lib/openvswitch-switch/ovs-vswitchd')
-            if (reactive.is_flag_set('config.changed.enable-dpdk') and
+            if ((reactive.is_flag_set('config.changed.enable-dpdk') or
+                 reactive.is_flag_set('config.changed.install-doca')) and
                     self.remove_obsolete_packages()):
                 ch_core.host.service_restart('openvswitch-switch')
 
@@ -827,6 +929,15 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
                 in self.options.validation_errors.items()
             ])
             return 'blocked', status_msg
+
+        if (self.options.install_doca and not self.options.doca_url and
+                not self.doca_packages_available()):
+            # The operator is expected to have configured the archive when
+            # they left doca-url unset, so say when they have not.
+            return ('blocked',
+                    '{} is not available, set doca-url or install the DOCA '
+                    'host repository package on this unit.'
+                    .format(DOCA_METAPACKAGE))
 
         if (self.options.enable_dpdk and
                 self.options._ovs_dpdk_cpu_overlap_check()):

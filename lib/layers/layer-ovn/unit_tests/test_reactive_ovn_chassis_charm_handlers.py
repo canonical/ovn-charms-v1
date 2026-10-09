@@ -203,6 +203,9 @@ class TestOvnHandlers(test_utils.PatchHelper):
         ]
         self.endpoint_from_flag.return_value = ovsdb
         handlers.configure_ovs()
+        # A change to any of the options that determine which packages
+        # provide the datapath has to be installed before use.
+        self.charm.install.assert_called_once_with()
         self.charm.configure_ovs.assert_called_once_with(
             ','.join(ovsdb.db_sb_connection_strs), True)
         self.charm.render_with_interfaces.assert_called_once_with(

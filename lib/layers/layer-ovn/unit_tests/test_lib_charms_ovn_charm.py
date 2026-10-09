@@ -334,6 +334,7 @@ class TestOVNConfigurationAdapterSerial(test_utils.PatchHelper):
             opts = {
                 'enable-hardware-offload': False,
                 'enable-sriov': False,
+                'install-doca': False,
                 'enable-dpdk': False,
                 'vpd-device-spec':
                 '[{"bus": "pci", "vendor_id": "b3ef", "device_id": "caf3"}]',
@@ -383,6 +384,7 @@ class TestOVNConfigurationAdapterSerial(test_utils.PatchHelper):
             opts = {
                 'enable-hardware-offload': False,
                 'enable-sriov': False,
+                'install-doca': False,
                 'enable-dpdk': False,
                 'vpd-device-spec': ''
             }
@@ -421,6 +423,7 @@ class TestOVNConfigurationAdapterSerial(test_utils.PatchHelper):
                 opts = {
                     'enable-hardware-offload': False,
                     'enable-sriov': False,
+                    'install-doca': False,
                     'enable-dpdk': False,
                     'vpd-device-spec': invalid_spec
                 }
@@ -443,6 +446,7 @@ class TestOVNConfigurationAdapterDPDKOverlap(test_utils.PatchHelper):
             opts = {
                 'enable-hardware-offload': False,
                 'enable-sriov': False,
+                'install-doca': False,
                 'enable-dpdk': True,
             }
             return opts[k] if k else opts
@@ -495,6 +499,7 @@ class Helper(test_utils.PatchHelper):
             cfg = config or {
                 'enable-hardware-offload': False,
                 'enable-sriov': False,
+                'install-doca': False,
                 'enable-dpdk': False,
                 'bridge-interface-mappings': 'br-ex:eth0',
                 'prefer-chassis-as-gw': False,
@@ -574,6 +579,7 @@ class TestDPDKOVNChassisCharmExtraLibs(Helper):
         self.local_config = {
             'enable-hardware-offload': False,
             'enable-sriov': False,
+            'install-doca': False,
             'enable-dpdk': True,
             'dpdk-bond-mappings': ('dpdk-bond0:a0:36:9f:dd:37:a4 '
                                    'dpdk-bond0:a0:36:9f:dd:3e:9c'),
@@ -761,6 +767,7 @@ class TestDPDKOVNChassisCharm(Helper):
         super().setUp(config={
             'enable-hardware-offload': False,
             'enable-sriov': False,
+            'install-doca': False,
             'enable-dpdk': True,
             'dpdk-bond-mappings': ('dpdk-bond0:a0:36:9f:dd:37:a4 '
                                    'dpdk-bond0:a0:36:9f:dd:3e:9c'),
@@ -1009,6 +1016,8 @@ class TestDPDKOVNChassisCharm(Helper):
             [
                 'mlnx-switchdev-mode',
                 'sriov-netplan-shim',
+                'doca-networking',
+                'mlnx-fw-updater',
             ])
 
     def test_install(self):
@@ -1051,6 +1060,7 @@ class TestOVNChassisCharmOvnSourceFocal(Helper):
 
     def setUp(self):
         super().setUp(config={'enable_dpdk': False,
+                              'install-doca': False,
                               'ovn-source': ''})
 
     def test_configure_sources(self):
@@ -1081,6 +1091,7 @@ class TestOVNDedicatedChassisCharmSourceOption(Helper):
 
     def setUp(self):
         super().setUp(config={'enable_dpdk': False,
+                              'install-doca': False,
                               'source': 'cloud:focal-yoga',
                               'ovn-source': ''})
 
@@ -1099,6 +1110,7 @@ class TestOVNChassisCharm(Helper):
         self.local_config = {
             'enable-hardware-offload': False,
             'enable-sriov': False,
+            'install-doca': False,
             'enable-dpdk': False,
             'bridge-interface-mappings': (
                 'br-provider:00:01:02:03:04:05 br-other:eth5'),
@@ -1565,6 +1577,8 @@ class TestOVNChassisCharm(Helper):
                 'mlnx-switchdev-mode',
                 'sriov-netplan-shim',
                 'openvswitch-switch-dpdk',
+                'doca-networking',
+                'mlnx-fw-updater',
             ])
 
     def test_install(self):
@@ -1574,8 +1588,12 @@ class TestOVNChassisCharm(Helper):
         self.patch_target('render_configs')
         self.patch_target('remove_obsolete_packages')
         self.patch_object(ovn_charm.ch_core.host, 'service_restart')
+        flags = {
+            'charm.installed': False,
+            'config.changed.enable-dpdk': True,
+        }
         self.patch_object(ovn_charm.reactive, 'is_flag_set',
-                          side_effect=[False, True])
+                          side_effect=lambda flag: flags.get(flag, False))
         self.target.install()
         self.render_configs.assert_called_once_with(
             ['/etc/default/openvswitch-switch'])
@@ -1584,8 +1602,6 @@ class TestOVNChassisCharm(Helper):
 
         # Check that Open vSwitch is restarted when DPDK is disabled
         self.remove_obsolete_packages.return_value = True
-        self.patch_object(ovn_charm.reactive, 'is_flag_set',
-                          side_effect=[False, True])
         self.service_restart.reset_mock()
         self.target.install()
         self.service_restart.assert_has_calls([
@@ -1900,6 +1916,7 @@ class TestSRIOVOVNChassisCharm(Helper):
         super().setUp(config={
             'enable-hardware-offload': False,
             'enable-sriov': True,
+            'install-doca': False,
             'enable-dpdk': False,
             'bridge-interface-mappings': 'br-ex:eth0',
             'ovn-bridge-mappings': 'physnet2:br-ex',
@@ -1947,6 +1964,154 @@ class TestSRIOVOVNChassisCharm(Helper):
             'openvswitch-switch')
 
 
+class TestDOCAOVNChassisCharm(Helper):
+
+    def setUp(self):
+        super().setUp(config={
+            'enable-hardware-offload': True,
+            'enable-sriov': False,
+            'enable-dpdk': False,
+            'install-doca': True,
+            'doca-url': 'https://example.com/doca-host.deb',
+            'bridge-interface-mappings': 'br-data:bond0',
+            'ovn-bridge-mappings': 'physnet1:br-data',
+            'ovn-source': 'distro',
+        })
+
+    def test_packages(self):
+        self.assertEqual(self.target.packages, [
+            'ovn-host', 'doca-networking', 'mlnx-fw-updater'])
+
+    def test_purge_packages(self):
+        # The DOCA packages are only purged when they are not wanted.
+        self.assertNotIn('doca-networking', self.target.purge_packages)
+
+    def test_configure_doca_source(self):
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=False)
+        self.patch_object(ovn_charm.ch_fetch, 'filter_installed_packages',
+                          return_value=['doca-host'])
+        self.patch_object(ovn_charm.ch_fetch, 'apt_update')
+        self.patch_target('run')
+        self.target.configure_doca_source()
+        self.run.assert_has_calls([
+            mock.call('wget', '-O', '/tmp/doca-host.deb',
+                      'https://example.com/doca-host.deb'),
+            mock.call('dpkg', '-i', '/tmp/doca-host.deb'),
+        ])
+        self.apt_update.assert_called_once_with(fatal=True)
+
+    def test_configure_doca_source_once_per_hook(self):
+        # More than one handler may ask for an install in the same hook.
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=True)
+        self.patch_object(ovn_charm.ch_fetch, 'filter_installed_packages',
+                          return_value=['doca-host'])
+        self.patch_object(ovn_charm.ch_fetch, 'apt_update')
+        self.patch_target('run')
+        self.target.configure_doca_source()
+        self.target.configure_doca_source()
+        self.apt_update.assert_called_once_with(fatal=True)
+
+    def test_configure_doca_source_without_url(self):
+        # The operator installed the host repository package themselves, so
+        # the archive is not ours to configure.
+        ovn_charm.ch_core.hookenv.config()['doca-url'] = ''
+        self.target = ovn_charm.BaseOVNChassisCharm()
+        self.patch_target('run')
+        self.target.configure_doca_source()
+        self.run.assert_not_called()
+
+    def test_doca_packages_available(self):
+        self.patch_object(ovn_charm.ch_fetch, 'apt_cache')
+        self.assertTrue(self.target.doca_packages_available())
+        self.apt_cache.return_value.__getitem__.side_effect = KeyError
+        self.assertFalse(self.target.doca_packages_available())
+
+    def test_custom_assess_status_last_check_archive_unconfigured(self):
+        ovn_charm.ch_core.hookenv.config()['doca-url'] = ''
+        self.target = ovn_charm.BaseOVNChassisCharm()
+        self.patch_target('doca_packages_available', return_value=False)
+        status, message = self.target.custom_assess_status_last_check()
+        self.assertEqual(status, 'blocked')
+        self.assertIn('doca-url', message)
+
+    def test_custom_assess_status_last_check_archive_managed_by_operator(
+            self):
+        ovn_charm.ch_core.hookenv.config()['doca-url'] = ''
+        self.target = ovn_charm.BaseOVNChassisCharm()
+        self.patch_target('doca_packages_available', return_value=True)
+        self.patch_object(ovn_charm.ch_core.host, 'service_running',
+                          return_value=False)
+        self.assertEqual(self.target.custom_assess_status_last_check(),
+                         (None, None))
+
+    def test_doca_packages_changing(self):
+        self.patch_object(ovn_charm.ch_fetch, 'filter_installed_packages',
+                          return_value=['doca-networking'])
+        self.assertTrue(self.target.doca_packages_changing())
+        self.filter_installed_packages.return_value = []
+        self.assertFalse(self.target.doca_packages_changing())
+
+    def test_configure_doca_source_already_configured(self):
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=False)
+        self.patch_object(ovn_charm.ch_fetch, 'filter_installed_packages',
+                          return_value=[])
+        self.patch_object(ovn_charm.ch_fetch, 'apt_update')
+        self.patch_target('run')
+        self.target.configure_doca_source()
+        self.run.assert_not_called()
+        self.apt_update.assert_not_called()
+
+    def test_configure_doca_source_url_changed(self):
+        # A new archive has to be configured even though the package that
+        # configures the previous one is installed.
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=True)
+        self.patch_object(ovn_charm.ch_fetch, 'filter_installed_packages',
+                          return_value=[])
+        self.patch_object(ovn_charm.ch_fetch, 'apt_update')
+        self.patch_target('run')
+        self.target.configure_doca_source()
+        self.assertTrue(self.run.called)
+
+    def patch_install(self):
+        self.patch_object(ovn_charm.reactive, 'set_flag')
+        self.patch_object(ovn_charm.ch_core.host, 'service_stop')
+        self.patch_object(ovn_charm.ch_core.host, 'service_start')
+        self.patch_object(ovn_charm.ch_core.host, 'service_restart')
+        self.patch_target('configure_sources')
+        self.patch_target('render_configs')
+        self.patch_target('remove_obsolete_packages', return_value=False)
+        self.patch_target('run')
+        self.patch_target('update_api_ports')
+
+    def test_install_stops_ovn_controller_on_transition(self):
+        # The DOCA packages replace the ones providing Open vSwitch, which
+        # ovn-controller must not reconcile against while it happens.
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=True)
+        self.patch_object(ovn_charm.ch_fetch, 'filter_installed_packages',
+                          return_value=['doca-networking'])
+        self.patch_install()
+        self.target.install()
+        self.service_stop.assert_called_once_with('ovn-controller')
+        self.service_start.assert_called_once_with('ovn-controller')
+
+    def test_install_leaves_installed_packages_alone(self):
+        # Nothing is replaced underneath ovn-controller when the packages
+        # are already in place.
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=True)
+        self.patch_object(ovn_charm.ch_fetch, 'filter_installed_packages',
+                          return_value=[])
+        self.patch_install()
+        self.target.install()
+        self.assertNotIn(mock.call('ovn-controller'),
+                         self.service_stop.mock_calls)
+
+
 class TestHWOffloadChassisCharm(Helper):
 
     def setUp(self):
@@ -1954,6 +2119,7 @@ class TestHWOffloadChassisCharm(Helper):
             'enable-hardware-offload': True,
             'enable-sriov': False,
             'enable-dpdk': False,
+            'install-doca': False,
             'bridge-interface-mappings': 'br-ex:eth0',
             'ovn-bridge-mappings': 'physnet2:br-ex',
             'ovn-source': 'distro',

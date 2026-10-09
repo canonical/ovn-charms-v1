@@ -125,8 +125,11 @@ def configure_ovs():
                 charm.optional_interfaces((ovsdb,),
                                           'nova-compute.connected',
                                           'amqp.connected'))
-        if reactive.is_flag_set('config.changed.enable-dpdk'):
-            # Install required packages and/or run update-alternatives
+        if (reactive.is_flag_set('config.changed.enable-dpdk')
+                or reactive.is_flag_set('config.changed.install-doca')
+                or reactive.is_flag_set('config.changed.doca-url')):
+            # Install or remove the packages the datapath in use needs,
+            # and/or run update-alternatives
             charm_instance.install()
         charm_instance.render_with_interfaces(
             charm.optional_interfaces((ovsdb,),
