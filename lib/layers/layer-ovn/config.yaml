@@ -177,6 +177,85 @@ options:
       NOTE: Changing this value will not perform runtime changes to hardware
       specific adaption. A reboot of the system is required to apply
       configuration.
+  install-doca:
+    type: boolean
+    default: false
+    description: |
+      Install the NVIDIA DOCA networking packages, which provide the
+      DOCA-OFED drivers for ConnectX and BlueField adapters together with the
+      OVS-DOCA build of Open vSwitch, and enable the DOCA offload provider.
+
+      The packages are installed from the archive named by doca-url, or from
+      an archive the operator configured on the unit themselves when that
+      option is left unset.
+
+      This option is not needed to use the `doca` datapath on a host that
+      already has OVS-DOCA installed and configured, for example by the image
+      a DPU was provisioned with. The charm uses the datapath the local Open
+      vSwitch offers, and leaves packages and the offload provider it did not
+      install alone.
+
+      This option must be used in conjunction with enable-hardware-offload
+      for flows to be offloaded to the network adapter, and must not be
+      enabled with either enable-sriov or enable-dpdk.
+
+      The `doca` datapath runs in userspace, so it needs hugepages, IOMMU,
+      and the address used for tunnel traffic to be reachable through the
+      bridge the uplink is attached to.
+
+      Reserving hugepages and enabling IOMMU through kernel parameters is
+      left to the machine provisioning, as it is for enable-dpdk, but note
+      that the DOCA packages conflict with the `dpdk` package and provide no
+      equivalent of its dpdk.service, which reserves hugepages and mounts a
+      hugetlbfs instance for each size it is configured for. A unit on the
+      `doca` datapath therefore has only the hugetlbfs instance systemd
+      mounts on /dev/hugepages, which serves the kernel's default hugepage
+      size, so provision these machines with default_hugepagesz set to the
+      size being reserved. A unit with no hugepages at all reports that in
+      its workload status.
+
+      NOTE: The DOCA kernel modules only take effect on a fresh boot, so a
+      unit keeps using the kernel datapath, and reports the pending reboot in
+      its workload status, until it has been rebooted. The charm neither
+      reboots the unit nor acts on its own once the unit comes back, so
+      enable this the way other disruptive changes are made:
+
+        juju run <unit>/leader pause
+        juju config <application> install-doca=true doca-url=<url>
+        # reboot the machine
+        juju run <unit>/leader resume
+
+      Resuming runs a full hook execution, which is what moves Open vSwitch
+      onto the `doca` datapath. Any other charm hook does the same.
+
+      NOTE: Disabling this option purges the DOCA packages the charm
+      installed, but leaves the OVS-DOCA build of openvswitch-switch they
+      pulled in installed in place of the one from the archive. The unit
+      returns to the kernel datapath once its Open vSwitch no longer offers
+      the `doca` one.
+
+      NOTE: Nothing stops a higher version of openvswitch-switch from the
+      Ubuntu Cloud Archive or from ovn-source replacing the OVS-DOCA build
+      on a subsequent package upgrade.
+  doca-url:
+    type: string
+    default:
+    description: |
+      URL to the NVIDIA DOCA host repository package, which the charm
+      installs to configure the archive the DOCA packages come from.
+
+      The package has to match both the series and the architecture of the
+      unit, for example
+      `doca-host_3.5.0-082000-26.07-ubuntu2404_amd64.deb` for Noble on
+      amd64.
+
+      Leave this unset to install the DOCA packages from an archive you
+      configured on the unit yourself, for example by downloading the host
+      repository package and running `dpkg -i` on it, by a local mirror, or
+      by the image a DPU was provisioned from. The charm then touches
+      neither the archive nor the package that configures it, and a unit
+      where it cannot find the DOCA packages reports that in its workload
+      status.
   enable-sriov:
     type: boolean
     default: false
