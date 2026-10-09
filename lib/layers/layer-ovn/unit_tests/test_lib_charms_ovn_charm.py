@@ -777,6 +777,9 @@ class TestDPDKOVNChassisCharm(Helper):
         self.patch_object(ovn_charm.OVNConfigurationAdapter,
                           '_ovs_dpdk_cpu_overlap_check')
 
+    def test_datapath_type(self):
+        self.assertEqual(self.target.datapath_type, 'netdev')
+
     def test__init__(self):
         self.assertEqual(self.target.packages, [
             'ovn-host', 'openvswitch-switch-dpdk'])
@@ -1114,6 +1117,9 @@ class TestOVNChassisCharm(Helper):
     def test_optional_openstack_metadata(self):
         self.assertEqual(self.target.packages, ['ovn-host'])
         self.assertEqual(self.target.services, ['ovn-host'])
+
+    def test_datapath_type(self):
+        self.assertEqual(self.target.datapath_type, 'system')
 
     def test_run(self):
         self.patch_object(ovn_charm.subprocess, 'run')

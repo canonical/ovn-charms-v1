@@ -36,6 +36,12 @@ from charms.layer import snap
 
 
 CERT_RELATION = 'certificates'
+
+# Open vSwitch datapath types.  ``system`` is the in-kernel datapath and
+# ``netdev`` the DPDK userspace datapath, both provided by upstream Open
+# vSwitch.
+DATAPATH_TYPE_NETDEV = 'netdev'
+DATAPATH_TYPE_SYSTEM = 'system'
 _DEFERABLE_SVC_LIST = ['openvswitch-switch', 'ovn-controller', 'ovn-host',
                        'ovs-vswitchd', 'ovsdb-server', 'ovs-record-hostname']
 
@@ -1009,6 +1015,22 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
             for device in devices
         ])
 
+    @property
+    def datapath_type(self):
+        """Open vSwitch datapath type to use for this unit's resources.
+
+        Resolved in one place so that the bridges, the ports attached to
+        them, and the Open vSwitch database defaults consulted by
+        ``ovn-controller`` cannot disagree about which datapath this unit
+        runs on.
+
+        :returns: Datapath type
+        :rtype: str
+        """
+        if self.options.enable_dpdk:
+            return DATAPATH_TYPE_NETDEV
+        return DATAPATH_TYPE_SYSTEM
+
     def _reconcile_open_vswitch(self, column, kv_pairs):
         """Reconcile keys in a map column of the ``Open_vSwitch`` table.
 
@@ -1276,11 +1298,8 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         brdata = {
             'external-ids': {'charm-ovn-chassis': 'managed'},
             'protocols': 'OpenFlow13,OpenFlow15',
+            'datapath-type': self.datapath_type,
         }
-        if self.options.enable_dpdk:
-            brdata.update({'datapath-type': 'netdev'})
-        else:
-            brdata.update({'datapath-type': 'system'})
         # we always update the integration bridge to make sure it has settings
         # apropriate for the current charm configuration
         ch_ovs.add_bridge('br-int', brdata={
