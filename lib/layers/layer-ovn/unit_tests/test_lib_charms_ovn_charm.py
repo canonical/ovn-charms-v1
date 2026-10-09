@@ -1587,6 +1587,39 @@ class TestOVNChassisCharm(Helper):
             mock.call('openvswitch-switch'),
         ])
 
+    def test_reconcile_open_vswitch(self):
+        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
+        ovsdb = mock.MagicMock()
+        ovsdb.open_vswitch.__iter__.return_value = [{
+            'other_config': {
+                'keep': 'me',
+                'change': 'old-value',
+                'remove': 'me',
+            },
+        }]
+        self.SimpleOVSDB.return_value = ovsdb
+        self.assertTrue(self.target._reconcile_open_vswitch('other_config', (
+            ('keep', 'me'),
+            ('change', 'new-value'),
+            ('remove', None),
+            ('never-was-there', None),
+        )))
+        ovsdb.open_vswitch.set.assert_called_once_with(
+            '.', 'other_config:change', 'new-value')
+        ovsdb.open_vswitch.remove.assert_called_once_with(
+            '.', 'other_config', 'remove')
+
+    def test_reconcile_open_vswitch_idempotent(self):
+        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
+        ovsdb = mock.MagicMock()
+        ovsdb.open_vswitch.__iter__.return_value = [{
+            'external_ids': {'something': 'set'}}]
+        self.SimpleOVSDB.return_value = ovsdb
+        self.assertFalse(self.target._reconcile_open_vswitch('external_ids', (
+            ('something', 'set'),)))
+        ovsdb.open_vswitch.set.assert_not_called()
+        ovsdb.open_vswitch.remove.assert_not_called()
+
     def test_configure_ovs_hw_offload(self):
         # Confirm that config is removed when HW offload is disabled
         self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
