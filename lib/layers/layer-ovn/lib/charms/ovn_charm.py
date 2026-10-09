@@ -70,6 +70,11 @@ DOCA_PACKAGES = [DOCA_METAPACKAGE, 'mlnx-fw-updater']
 DOCA_HOST_PACKAGE = 'doca-host'
 DOCA_HOST_DEB = '/tmp/doca-host.deb'
 
+# Set once the charm has installed the DOCA packages on a unit.  A host may
+# arrive with OVS-DOCA already installed and configured by its image, and the
+# packages and the offload provider are then not ours to manage.
+DOCA_MANAGED_FLAG = 'charm.ovn.doca-managed'
+
 _DEFERABLE_SVC_LIST = ['openvswitch-switch', 'ovn-controller', 'ovn-host',
                        'ovs-vswitchd', 'ovsdb-server', 'ovs-record-hostname']
 
@@ -626,7 +631,8 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         _purge_packages = ['mlnx-switchdev-mode', 'sriov-netplan-shim']
         if not self.options.enable_dpdk:
             _purge_packages.extend(['openvswitch-switch-dpdk'])
-        if not self.options.install_doca:
+        if (not self.options.install_doca and
+                reactive.is_flag_set(DOCA_MANAGED_FLAG)):
             _purge_packages.extend(DOCA_PACKAGES)
         return _purge_packages
 
@@ -798,12 +804,17 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
     def doca_packages_changing(self):
         """Whether this run installs or removes the DOCA packages.
 
+        The packages are only ours to remove when the charm installed them,
+        as a host may arrive with OVS-DOCA already installed by its image.
+
         :returns: Whether the package set is about to change
         :rtype: bool
         """
         installed = not ch_fetch.filter_installed_packages(
             [DOCA_METAPACKAGE])
-        return self.options.install_doca != installed
+        if self.options.install_doca:
+            return not installed
+        return installed and reactive.is_flag_set(DOCA_MANAGED_FLAG)
 
     @contextlib.contextmanager
     def ovn_controller_stopped(self):
@@ -839,6 +850,11 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
                 # provide Open vSwitch itself.
                 stack.enter_context(self.ovn_controller_stopped())
             super().install()
+
+        if self.options.install_doca and doca_changing:
+            # These packages are ours to remove again, unlike ones a host
+            # had installed before the charm arrived.
+            reactive.set_flag(DOCA_MANAGED_FLAG)
 
         if (not reactive.is_flag_set('charm.installed') and
                 self.options.mlockall_disabled):
@@ -1216,12 +1232,15 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         runs on.
 
         The DOCA datapath is taken from what ``ovs-vswitchd`` offers rather
-        than from the ``install-doca`` configuration option alone, because
-        the two legitimately disagree until the reboot that activates the
-        DOCA kernel modules has happened.  ``ovn-controller`` propagates the
-        type without validating it, so a unit that claimed a datapath its
-        ``ovs-vswitchd`` cannot open would be left with an integration
-        bridge that never instantiates.
+        than from the ``install-doca`` configuration option, for two
+        reasons.  The two legitimately disagree until the reboot that
+        activates the DOCA kernel modules has happened, and
+        ``ovn-controller`` propagates the type without validating it, so a
+        unit that claimed a datapath its ``ovs-vswitchd`` cannot open would
+        be left with an integration bridge that never instantiates.  It also
+        means a host that had OVS-DOCA installed and configured by its image
+        before the charm arrived keeps working, instead of being moved onto
+        the kernel datapath its Open vSwitch is no longer configured for.
 
         Note that ``doca`` is distinct from, and not a synonym for, the
         ``netdev`` datapath used by DPDK.
@@ -1229,8 +1248,7 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         :returns: Datapath type
         :rtype: str
         """
-        if (self.options.install_doca and
-                DATAPATH_TYPE_DOCA in self.ovs_datapath_types()):
+        if DATAPATH_TYPE_DOCA in self.ovs_datapath_types():
             return DATAPATH_TYPE_DOCA
         if self.options.enable_dpdk:
             return DATAPATH_TYPE_NETDEV
@@ -1313,8 +1331,19 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         :returns: Whether something changed
         :rtype: bool
         """
-        return self._reconcile_open_vswitch('other_config', (
+        if not (self.options.install_doca or
+                reactive.is_flag_set(DOCA_MANAGED_FLAG)):
+            # Neither ours to enable nor ours to disable.
+            return False
+        something_changed = self._reconcile_open_vswitch('other_config', (
             ('doca-init', 'true' if self.options.install_doca else None),))
+        if not self.options.install_doca:
+            # The packages have been removed and the offload provider turned
+            # off, so nothing DOCA on this unit is ours any more.  Done here
+            # rather than next to the removal itself, as this is the last of
+            # the two to run.
+            reactive.clear_flag(DOCA_MANAGED_FLAG)
+        return something_changed
 
     def configure_ovs_datapath(self):
         """Configure the datapath type defaults in Open vSwitch.

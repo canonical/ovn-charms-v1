@@ -577,6 +577,21 @@ class Helper(test_utils.PatchHelper):
         self._patches_start[attr] = started
         setattr(self, attr, started)
 
+    def patch_datapath_types(self, datapath_types):
+        """Present ``datapath_types`` as offered by ovs-vswitchd.
+
+        :param datapath_types: Datapath types to present.
+        :type datapath_types: any
+        :returns: The mocked ``open_vswitch`` table object.
+        :rtype: mock.MagicMock
+        """
+        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
+        ovsdb = mock.MagicMock()
+        ovsdb.open_vswitch.__iter__.return_value = [
+            {'datapath_types': datapath_types}]
+        self.SimpleOVSDB.return_value = ovsdb
+        return ovsdb
+
 
 class TestOVNChassisCharmWithOpenStack(Helper):
 
@@ -1040,6 +1055,10 @@ class TestDPDKOVNChassisCharm(Helper):
                          (None, None))
 
     def test_purge_packages(self):
+        # The DOCA packages are purged when they are ours and no longer
+        # wanted.
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=True)
         self.assertEqual(
             self.target.purge_packages,
             [
@@ -1160,7 +1179,58 @@ class TestOVNChassisCharm(Helper):
         self.assertEqual(self.target.services, ['ovn-host'])
 
     def test_datapath_type(self):
+        self.patch_datapath_types(['system', 'netdev'])
         self.assertEqual(self.target.datapath_type, 'system')
+
+    def test_datapath_type_provisioned_by_image(self):
+        # LP: #2170179.  A host may arrive with OVS-DOCA installed and
+        # configured by its image, and moving it onto the kernel datapath
+        # its Open vSwitch is no longer configured for breaks it.
+        self.patch_datapath_types(['system', 'doca'])
+        self.assertEqual(self.target.datapath_type, 'doca')
+
+    def test_configure_ovs_doca_not_ours(self):
+        # The offload provider of a host that had OVS-DOCA before the charm
+        # arrived is not ours to turn off.
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=False)
+        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
+        ovsdb = mock.MagicMock()
+        ovsdb.open_vswitch.__iter__.return_value = [{
+            'other_config': {'doca-init': 'true'}}]
+        self.SimpleOVSDB.return_value = ovsdb
+        self.assertFalse(self.target.configure_ovs_doca())
+        ovsdb.open_vswitch.set.assert_not_called()
+        ovsdb.open_vswitch.remove.assert_not_called()
+
+    def test_configure_ovs_doca_ours(self):
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=True)
+        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
+        ovsdb = mock.MagicMock()
+        ovsdb.open_vswitch.__iter__.return_value = [{
+            'other_config': {'doca-init': 'true'}}]
+        self.SimpleOVSDB.return_value = ovsdb
+        self.assertTrue(self.target.configure_ovs_doca())
+        ovsdb.open_vswitch.remove.assert_called_once_with(
+            '.', 'other_config', 'doca-init')
+
+    def test_configure_ovs_doca_relinquishes_ownership(self):
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=True)
+        self.patch_object(ovn_charm.reactive, 'clear_flag')
+        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
+        ovsdb = mock.MagicMock()
+        ovsdb.open_vswitch.__iter__.return_value = [{
+            'other_config': {'doca-init': 'true'}}]
+        self.SimpleOVSDB.return_value = ovsdb
+        self.target.configure_ovs_doca()
+        self.clear_flag.assert_called_once_with('charm.ovn.doca-managed')
+
+    def test_purge_packages_doca_not_ours(self):
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=False)
+        self.assertNotIn('doca-networking', self.target.purge_packages)
 
     def test_run(self):
         self.patch_object(ovn_charm.subprocess, 'run')
@@ -1600,6 +1670,10 @@ class TestOVNChassisCharm(Helper):
             '/usr/bin/env', 'python3', '/some/path/hooks/config-changed')
 
     def test_purge_packages(self):
+        # The DOCA packages are purged when they are ours and no longer
+        # wanted.
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=True)
         self.assertEqual(
             self.target.purge_packages,
             [
@@ -2019,21 +2093,6 @@ class TestDOCAOVNChassisCharm(Helper):
         # The DOCA packages are only purged when they are not wanted.
         self.assertNotIn('doca-networking', self.target.purge_packages)
 
-    def patch_datapath_types(self, datapath_types):
-        """Present ``datapath_types`` as offered by ovs-vswitchd.
-
-        :param datapath_types: Datapath types to present.
-        :type datapath_types: any
-        :returns: The mocked ``open_vswitch`` table object.
-        :rtype: mock.MagicMock
-        """
-        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
-        ovsdb = mock.MagicMock()
-        ovsdb.open_vswitch.__iter__.return_value = [
-            {'datapath_types': datapath_types}]
-        self.SimpleOVSDB.return_value = ovsdb
-        return ovsdb
-
     def test_ovs_datapath_types(self):
         self.patch_datapath_types(['doca', 'netdev', 'system'])
         self.assertEqual(self.target.ovs_datapath_types(),
@@ -2378,6 +2437,31 @@ class TestDOCAOVNChassisCharm(Helper):
                           return_value=[])
         self.patch_install()
         self.target.install()
+        self.assertNotIn(mock.call('ovn-controller'),
+                         self.service_stop.mock_calls)
+
+    def test_install_records_ownership(self):
+        # Which is what tells the packages apart from an installation
+        # performed by the host's image.
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=False)
+        self.patch_object(ovn_charm.ch_fetch, 'filter_installed_packages',
+                          return_value=['doca-networking'])
+        self.patch_install()
+        self.target.install()
+        self.set_flag.assert_called_once_with('charm.ovn.doca-managed')
+
+    def test_install_leaves_provisioned_packages_alone(self):
+        # LP: #2170179.  The packages were there before the charm arrived,
+        # so they are not ours to claim, and nothing is replaced underneath
+        # ovn-controller.
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=False)
+        self.patch_object(ovn_charm.ch_fetch, 'filter_installed_packages',
+                          return_value=[])
+        self.patch_install()
+        self.target.install()
+        self.set_flag.assert_not_called()
         self.assertNotIn(mock.call('ovn-controller'),
                          self.service_stop.mock_calls)
 
