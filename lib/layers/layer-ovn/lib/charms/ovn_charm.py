@@ -1009,18 +1009,41 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
             for device in devices
         ])
 
+    def _reconcile_open_vswitch(self, column, kv_pairs):
+        """Reconcile keys in a map column of the ``Open_vSwitch`` table.
+
+        :param column: Name of the map column, e.g. ``other_config``.
+        :type column: str
+        :param kv_pairs: Key/value pairs to ensure are set in the column.  A
+                         value of ``None`` removes the key, which is how a
+                         feature being turned off is expressed.
+        :type kv_pairs: Iterable[Tuple[str,Optional[str]]]
+        :returns: Whether something changed
+        :rtype: bool
+        """
+        something_changed = False
+        opvs = ch_ovsdb.SimpleOVSDB('ovs-vsctl').open_vswitch
+        for row in opvs:
+            current = row.get(column, {})
+            for k, v in kv_pairs:
+                if current.get(k) == v:
+                    continue
+                if v is None:
+                    opvs.remove('.', column, k)
+                else:
+                    opvs.set('.', '{}:{}'.format(column, k), v)
+                something_changed = True
+        return something_changed
+
     def configure_ovs_dpdk(self):
         """Configure DPDK specific bits in Open vSwitch.
 
         :returns: Whether something changed
         :rtype: bool
         """
-        something_changed = False
         dpdk_context = os_context.OVSDPDKDeviceContext(
             bridges_key=self.bridges_key)
-        opvs = ch_ovsdb.SimpleOVSDB('ovs-vsctl').open_vswitch
-        other_config_fmt = 'other_config:{}'
-        kv_pairs = (
+        return self._reconcile_open_vswitch('other_config', (
             ('dpdk-lcore-mask',
              dpdk_context.cpu_mask()
              if self.options.enable_dpdk else None),
@@ -1037,20 +1060,7 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
              dpdk_context.pmd_cpu_mask()
              if self.options.enable_dpdk and self.options.pmd_cpu_set
              else None),
-        )
-        for row in opvs:
-            for k, v in (kv_pairs):
-                other_config = row.get('other_config', {})
-                if other_config.get(k) != v:
-                    something_changed = True
-                    if v:
-                        opvs.set('.', other_config_fmt.format(k), v)
-                    elif k in other_config:
-                        opvs.remove('.', 'other_config', k)
-                    else:
-                        # NOT REACHED
-                        pass
-        return something_changed
+        ))
 
     def configure_ovs_hw_offload(self):
         """Configure hardware offload specific bits in Open vSwitch.
@@ -1058,30 +1068,14 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         :returns: Whether something changed
         :rtype: bool
         """
-        something_changed = False
-        opvs = ch_ovsdb.SimpleOVSDB('ovs-vsctl').open_vswitch
-        other_config_fmt = 'other_config:{}'
-        kv_pairs = (
+        return self._reconcile_open_vswitch('other_config', (
             ('hw-offload',
              'true'
              if self.options.enable_hardware_offload else None),
             ('max-idle',
              '30000'
              if self.options.enable_hardware_offload else None),
-        )
-        for row in opvs:
-            for k, v in (kv_pairs):
-                other_config = row.get('other_config', {})
-                if other_config.get(k) != v:
-                    something_changed = True
-                    if v:
-                        opvs.set('.', other_config_fmt.format(k), v)
-                    elif k in other_config:
-                        opvs.remove('.', 'other_config', k)
-                    else:
-                        # NOT REACHED
-                        pass
-        return something_changed
+        ))
 
     def configure_ovs(self, sb_conn, mlockall_changed):
         """Global Open vSwitch configuration tasks.
