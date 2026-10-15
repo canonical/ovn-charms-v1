@@ -38,6 +38,8 @@ sys.modules['charms'] = charms
 charms.leadership = mock.MagicMock()
 sys.modules['charms.leadership'] = charms.leadership
 charms.reactive = mock.MagicMock()
+# The local provider only adds protocol logic to the reactive Endpoint base.
+charms.reactive.Endpoint = object
 charms.reactive.when = _fake_decorator
 charms.reactive.when_all = _fake_decorator
 charms.reactive.when_any = _fake_decorator
