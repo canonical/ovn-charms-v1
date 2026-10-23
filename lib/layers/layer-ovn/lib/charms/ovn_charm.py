@@ -1350,6 +1350,11 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
             ('max-idle',
              '30000'
              if self.options.enable_hardware_offload else None),
+            # Only understood by NVIDIA's builds of Open vSwitch, which
+            # leave connection tracking of IPv6 flows in software otherwise.
+            ('hw-offload-ct-ipv6-enabled',
+             'true'
+             if self.options.enable_hardware_offload else None),
         ))
 
     def configure_ovs_doca(self):

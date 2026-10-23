@@ -1759,6 +1759,7 @@ class TestOVNChassisCharm(Helper):
             'other_config': {
                 'hw-offload': 'true',
                 'max-idle': '30000',
+                'hw-offload-ct-ipv6-enabled': 'true',
             },
         }]
         self.SimpleOVSDB.return_value = ovsdb
@@ -1766,6 +1767,7 @@ class TestOVNChassisCharm(Helper):
         ovsdb.open_vswitch.remove.assert_has_calls([
             mock.call('.', 'other_config', 'hw-offload'),
             mock.call('.', 'other_config', 'max-idle'),
+            mock.call('.', 'other_config', 'hw-offload-ct-ipv6-enabled'),
         ])
 
         # Confirm that we don't request restart when nothing changed
@@ -2592,6 +2594,7 @@ class TestHWOffloadChassisCharm(Helper):
             'other_config': {
                 'hw-offload': 'true',
                 'max-idle': '30000',
+                'hw-offload-ct-ipv6-enabled': 'true',
             },
         }]
         self.SimpleOVSDB.return_value = ovsdb
@@ -2601,6 +2604,7 @@ class TestHWOffloadChassisCharm(Helper):
             'other_config': {
                 'hw-offload': 'false',
                 'max-idle': '30000',
+                'hw-offload-ct-ipv6-enabled': 'true',
             },
         }]
         self.assertTrue(self.target.configure_ovs_hw_offload())
@@ -2610,9 +2614,26 @@ class TestHWOffloadChassisCharm(Helper):
             'other_config': {
                 'hw-offload': 'true',
                 'max-idle': '42',
+                'hw-offload-ct-ipv6-enabled': 'true',
             },
         }]
         ovsdb.open_vswitch.set.reset_mock()
         self.assertTrue(self.target.configure_ovs_hw_offload())
         ovsdb.open_vswitch.set.assert_called_once_with(
             '.', 'other_config:max-idle', '30000')
+
+    def test_configure_ovs_hw_offload_ct_ipv6(self):
+        # Offloading connection tracking of IPv6 flows is disabled by
+        # default in OVS-DOCA.
+        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
+        ovsdb = mock.MagicMock()
+        ovsdb.open_vswitch.__iter__.return_value = [{
+            'other_config': {
+                'hw-offload': 'true',
+                'max-idle': '30000',
+            },
+        }]
+        self.SimpleOVSDB.return_value = ovsdb
+        self.assertTrue(self.target.configure_ovs_hw_offload())
+        ovsdb.open_vswitch.set.assert_called_once_with(
+            '.', 'other_config:hw-offload-ct-ipv6-enabled', 'true')
