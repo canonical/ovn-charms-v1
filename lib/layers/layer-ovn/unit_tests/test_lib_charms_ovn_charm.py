@@ -1181,6 +1181,7 @@ class TestOVNChassisCharm(Helper):
             'ovn-source': 'distro',
             'ovs-exporter-channel': '',
             'enable-version-pinning': False,
+            'pmd-cpu-set': None,
         }
         super().setUp(config=self.local_config)
 
@@ -1198,6 +1199,12 @@ class TestOVNChassisCharm(Helper):
         # its Open vSwitch is no longer configured for breaks it.
         self.patch_datapath_types(['system', 'doca'])
         self.assertEqual(self.target.datapath_type, 'doca')
+
+    def test_pmd_cpu_mask_system_datapath(self):
+        # The kernel datapath has no PMD threads to pin.
+        self.patch_datapath_types(['system', 'netdev'])
+        self.target.options.pmd_cpu_set = '8-11'
+        self.assertIsNone(self.target.pmd_cpu_mask())
 
     def test_configure_ovs_doca_not_ours(self):
         # The offload provider of a host that had OVS-DOCA before the charm
@@ -2084,6 +2091,7 @@ class TestDOCAOVNChassisCharm(Helper):
             'enable-version-pinning': False,
             'vpd-device-spec': '',
             'ovn-source': 'distro',
+            'pmd-cpu-set': None,
         })
 
     def test_packages(self):
@@ -2390,6 +2398,85 @@ class TestDOCAOVNChassisCharm(Helper):
         ovn_charm.deferred_events.deferrable_svc_restart \
             .assert_called_once_with(
                 'ovs-vswitchd', reason='datapath type changed')
+
+    def patch_configure_bridges_bond0(self):
+        """Map ``bond0`` on ``br-data`` on the ``doca`` datapath.
+
+        :returns: The mocked ``SimpleOVSDB`` instance.
+        :rtype: mock.MagicMock
+        """
+        self.patch_target('ovs_datapath_types', return_value={'doca'})
+        self.patch_object(ovn_charm, 'deferred_events')
+        self.patch_object(ovn_charm.os_context, 'BridgePortInterfaceMap')
+        dict_bpi = {'br-data': {'bond0': {'bond0': {}}}}
+        mock_bpi = mock.MagicMock()
+        mock_bpi.items.return_value = dict_bpi.items()
+        mock_bpi.__iter__.return_value = dict_bpi.__iter__()
+        mock_bpi.__contains__.side_effect = dict_bpi.__contains__
+        mock_bpi.__getitem__.side_effect = lambda x: dict_bpi.__getitem__(x)
+        mock_bpi.get_ifdatamap.side_effect = lambda x, y: {
+            k: v for k, v in dict_bpi[x][y].items()}
+        self.BridgePortInterfaceMap.return_value = mock_bpi
+        self.patch_object(ovn_charm.os_context, 'BondConfig')
+        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
+        ovsdb = mock.MagicMock()
+        ovsdb.port.find.return_value = []
+        self.SimpleOVSDB.return_value = ovsdb
+        self.patch_target('charm_managed_bridges', return_value=[
+            {'name': 'br-int', 'datapath_type': 'doca'}])
+        self.patch_object(ovn_charm.ch_ovs, 'add_bridge')
+        self.patch_object(ovn_charm.ch_ovs, 'add_bridge_port')
+        self.patch_target('check_if_paused', return_value=(None, None))
+        return ovsdb
+
+    def test_pmd_cpu_mask(self):
+        self.patch_target('ovs_datapath_types', return_value={'doca'})
+        dpdk_context = mock.MagicMock()
+        dpdk_context.pmd_cpu_mask.return_value = '0xf00'
+        self.patch_object(ovn_charm.os_context, 'OVSDPDKDeviceContext',
+                          return_value=dpdk_context)
+        self.target.options.pmd_cpu_set = '8-11'
+        self.assertEqual(self.target.pmd_cpu_mask(), '0xf00')
+
+    def test_configure_ovs_dpdk_pmd_cpu_mask(self):
+        # The doca datapath runs PMD threads in userspace like DPDK does,
+        # even though enable-dpdk is not set.
+        self.patch_target('pmd_cpu_mask', return_value='0xf00')
+        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
+        ovsdb = mock.MagicMock()
+        ovsdb.open_vswitch.__iter__.return_value = [{'other_config': {}}]
+        self.SimpleOVSDB.return_value = ovsdb
+        self.assertTrue(self.target.configure_ovs_dpdk())
+        ovsdb.open_vswitch.set.assert_called_once_with(
+            '.', 'other_config:pmd-cpu-mask', '0xf00')
+
+    def test_configure_bridges_n_rxq(self):
+        # One receive queue per PMD thread, so every PMD core polls the
+        # uplink.
+        self.patch_configure_bridges_bond0()
+        self.patch_target('pmd_cpu_mask', return_value='0xf00')
+        self.target.configure_bridges()
+        self.add_bridge_port.assert_called_once_with(
+            'br-data', 'bond0', ifdata={
+                'type': 'doca',
+                'options': {'dpdk-lsc-interrupt': 'true', 'n_rxq': '4'},
+                'external-ids': {'charm-ovn-chassis': 'br-data'}},
+            linkup=True, promisc=None, portdata={
+                'external-ids': {'charm-ovn-chassis': 'br-data'}})
+
+    def test_configure_bridges_n_rxq_unset(self):
+        ovsdb = self.patch_configure_bridges_bond0()
+        self.patch_target('pmd_cpu_mask', return_value=None)
+        self.target.configure_bridges()
+        self.add_bridge_port.assert_called_once_with(
+            'br-data', 'bond0', ifdata={
+                'type': 'doca',
+                'options': {'dpdk-lsc-interrupt': 'true'},
+                'external-ids': {'charm-ovn-chassis': 'br-data'}},
+            linkup=True, promisc=None, portdata={
+                'external-ids': {'charm-ovn-chassis': 'br-data'}})
+        ovsdb.interface.remove.assert_called_once_with(
+            'bond0', 'options', 'n_rxq')
 
     def test_configure_bridges_no_restart_when_in_sync(self):
         self.patch_target('ovs_datapath_types', return_value={'doca'})
