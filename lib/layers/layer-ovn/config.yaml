@@ -321,6 +321,60 @@ options:
       NOTE: It is recommended to avoid overlap between datapath (pmd-cpu-mask)
       and non-datapath (dpdk-lcore-mask) cpus. The charm will go into blocked
       state if an overlap is detected.
+  ovs-cpu-cores:
+    type: int
+    default: 16
+    description: |
+      Number of CPUs to pin the ovs-vswitchd process to, on machines the
+      EPA orchestrator is deployed to.
+
+      The default of 16, eight cores and their SMT siblings, leaves room for
+      the handler and revalidator threads of a busy hyperconverged host.
+
+      The CPUs are obtained from the EPA orchestrator, which keeps track of
+      the CPUs handed out to each service on a host, so ovs-vswitchd does
+      not end up on CPUs pinned to other services, such as Ceph OSDs, through
+      it. Deploy the epa-orchestrator charm on the same machines to make it
+      available.
+
+      The CPUs are taken from the NUMA node local to the interfaces in
+      bridge-interface-mappings, shared evenly between NUMA nodes when the
+      interfaces are on more than one, and from NUMA node 0 when their NUMA
+      node cannot be told. NUMA nodes without CPUs, such as those of CXL
+      memory expanders, are not considered.
+
+      They come from the EPA general CPU pool, as the threads of
+      ovs-vswitchd need CPUs the kernel balances load across, and are only
+      handed out when no other service holds them. The pool has to be
+      configured on each machine, for example:
+
+          sudo snap set epa-orchestrator cpu-pool=128-191,384-447
+
+      This requires an epa-orchestrator snap with support for CPU pools and
+      non-preemptive allocations, as an older one would take the CPUs it
+      hands out away from the services holding them. The charm does not ask
+      an older one for any.
+
+      Machines the EPA orchestrator is not deployed to are left alone. When
+      it is deployed but cannot provide the CPUs, ovs-vswitchd is left
+      unpinned, and the unit says so in its workload status.
+
+      NOTE: The charm talks to the EPA orchestrator on the machine rather
+      than through a relation, so it is not told when the EPA orchestrator
+      is deployed or its CPU pool changes. Run the resume action, or make
+      any other change that runs a hook, to have the unit pick it up.
+
+      This does not affect the DPDK or DOCA PMD threads, which are placed
+      according to pmd-cpu-set. With DPDK enabled, dpdk-lcore-mask is not
+      set while ovs-vswitchd is pinned, so that DPDK runs its main lcore on
+      one of the pinned CPUs and Open vSwitch keeps its other threads on
+      them, which an explicit lcore mask would prevent.
+
+      Set to 0 to not pin ovs-vswitchd and release the CPUs held for it.
+
+      NOTE: Changing which CPUs ovs-vswitchd is pinned to restarts
+      openvswitch-switch, resulting in an expected data plane outage while
+      the service restarts.
   sriov-device-mappings:
     type: string
     default:
