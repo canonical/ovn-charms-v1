@@ -1,0 +1,17 @@
+jsonschema
+# rpds_py is a dependency of jsonschema.
+# Since version 0.25 it depends on rust edition 2024 which
+# became stable in rust 1.85.0[0]. This version of rust toolchain
+# is not available in the noble.
+#
+# [0] https://doc.rust-lang.org/beta/releases.html#version-1851-2025-03-18
+rpds_py<0.25
+
+# https://github.com/pallets/jinja/issues/1496
+# https://github.com/juju/charm-tools/issues/646
+Jinja2<3;python_version == '3.8'
+
+# These dependencies are required for cos-agent
+# interface layer to work correctly.
+cosl==0.0.57
+ops==2.20.0
