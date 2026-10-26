@@ -84,6 +84,72 @@ that network.
 Networks for use with external Layer2 connectivity should have mappings present
 on all chassis with potential to host the consuming payload.
 
+## Metadata for remote-managed ports
+
+When this charm runs on a SmartNIC DPU, instances using
+[remote-managed ports][ovn-smartnic-dpu] need a Neutron OVN metadata agent on
+the DPU. The `nova-compute` relation enables this agent using the credentials
+already configured for a related compute host's local `ovn-chassis` metadata
+proxy. Nova transmits those credentials to the DPU; the DPU does not generate a
+secret or change the credentials used by local instances.
+
+This requires a nova-compute charm implementing the `neutron-plugin-remote`
+endpoint with the `neutron-plugin-remote` interface and global scope. Its existing
+`neutron-plugin` endpoint retains container scope for colocated subordinates.
+The new endpoint is declared in nova-compute's `metadata.yaml` as follows:
+
+```yaml
+requires:
+  neutron-plugin-remote:
+    interface: neutron-plugin-remote
+    scope: global
+```
+
+Each Nova unit must publish the following raw unit relation data after
+configuring its local metadata API:
+
+* `private-address`: the compute metadata API address, reachable on port 8775.
+* `metadata-shared-secret`: the secret already used by that unit's local
+  metadata proxy.
+
+Nova must refresh this advertisement when local credentials change and withdraw
+the secret when local signed metadata is unavailable. Incoming DPU credentials
+must not configure Nova's metadata API. Versions of Nova that only consume a
+DPU-generated secret need the companion credential-forwarding update.
+
+With a compatible nova-compute charm deployed, add the relation:
+
+    juju integrate ovn-dedicated-chassis:nova-compute nova-compute:neutron-plugin-remote
+
+The DPU must be able to reach the compute hosts' relation addresses on TCP port
+8775. Relate the dedicated chassis application to the compute application for
+its Nova cell. A compute API can serve metadata for instances on other hosts in
+that cell, including after migration.
+
+Keep the existing `nova-compute` / `ovn-chassis` relation when adding dedicated
+chassis. The DPU automatically adopts existing credentials, so no secret
+configuration or reconciliation action is needed. This also works when the
+local provider is established after the DPU relation: the DPU waits for a
+complete advertisement before enabling metadata.
+
+Compute units may have different local secrets. Each DPU selects the first
+complete advertisement, ordered by relation ID and unit name, and always uses
+the address and secret from that same unit. It re-renders the agent
+configuration on credential changes. If the selected unit leaves the relation
+or withdraws its credentials, the DPU selects another complete pair. It waits
+if none remain; it never combines credentials from different compute units.
+
+When upgrading from an earlier DPU revision that generated its own secret,
+upgrade both charms to the credential-forwarding protocol. The DPU clears its
+obsolete outgoing secret automatically, and Nova retains the local provider's
+credentials throughout. No local metadata relation needs to be removed.
+
+The existing `ovsdb` and `certificates` relations are also required. Once the
+relation is ready, the charm installs and manages `neutron-ovn-metadata-agent`
+and renders `/etc/neutron/neutron_ovn_metadata_agent.ini` on each DPU. This
+allows instances to obtain metadata without requiring config-drive. It does not
+change Nova's other restrictions on migrating remote-managed PCI devices.
+
 ## Deferred service events
 
 Operational or maintenance procedures applied to a cloud often lead to the
@@ -116,3 +182,4 @@ For general questions please refer to the [OpenStack Charm Guide][cg].
 [ovn-chassis-charm]: https://jaas.ai/ovn-chassis
 [openstack-base-bundle]: https://github.com/openstack-charmers/openstack-bundles/blob/master/development/openstack-base-bionic-ussuri-ovn/bundle.yaml
 [cdg-deferred-service-events]: https://docs.openstack.org/project-deploy-guide/charm-deployment-guide/latest/deferred-events.html
+[ovn-smartnic-dpu]: https://docs.openstack.org/neutron/latest/admin/ovn/smartnic_dpu.html

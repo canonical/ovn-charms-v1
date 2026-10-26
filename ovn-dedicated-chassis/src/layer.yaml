@@ -2,6 +2,8 @@ includes:
   - layer:ovn
   - interface:ovsdb
   - interface:nrpe-external-master
+# The neutron-plugin-remote metadata provider is shipped locally under
+# hooks/relations: remote chassis consume Nova's existing metadata credentials.
 options:
   basic:
     use_venv: True
@@ -18,7 +20,6 @@ config:
     - enable-sriov
     - networking-tools-source
     - sriov-device-mappings
-    - debug
     - ssl_ca
     - ssl_cert
     - ssl_key
