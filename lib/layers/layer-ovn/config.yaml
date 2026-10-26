@@ -199,6 +199,42 @@ options:
       for flows to be offloaded to the network adapter, and must not be
       enabled with either enable-sriov or enable-dpdk.
 
+      NOTE: Disabling this option purges the DOCA packages the charm
+      installed, but leaves the OVS-DOCA build of openvswitch-switch they
+      pulled in installed in place of the one from the archive. The unit
+      returns to the kernel datapath once its Open vSwitch no longer offers
+      the `doca` one.
+
+      NOTE: Nothing stops a higher version of openvswitch-switch from the
+      Ubuntu Cloud Archive or from ovn-source replacing the OVS-DOCA build
+      on a subsequent package upgrade.
+  doca-url:
+    type: string
+    default:
+    description: |
+      URL to the NVIDIA DOCA host repository package, which the charm
+      installs to configure the archive the DOCA packages come from.
+
+      The package has to match both the series and the architecture of the
+      unit, for example
+      `doca-host_3.5.0-082000-26.07-ubuntu2404_amd64.deb` for Noble on
+      amd64.
+
+      Leave this unset to install the DOCA packages from an archive you
+      configured on the unit yourself, for example by downloading the host
+      repository package and running `dpkg -i` on it, by a local mirror, or
+      by the image a DPU was provisioned from. The charm then touches
+      neither the archive nor the package that configures it, and a unit
+      where it cannot find the DOCA packages reports that in its workload
+      status.
+  enable-doca:
+    type: boolean
+    default: false
+    description: |
+      Enables doca within the charm, setting doca-init=true. This is
+      independent of install-doca and can be enabled with manually installed
+      DOCA.
+
       The `doca` datapath runs in userspace, so it needs hugepages, IOMMU,
       and the address used for tunnel traffic to be reachable through the
       bridge the uplink is attached to.
@@ -228,34 +264,6 @@ options:
       Resuming runs a full hook execution, which is what moves Open vSwitch
       onto the `doca` datapath. Any other charm hook does the same.
 
-      NOTE: Disabling this option purges the DOCA packages the charm
-      installed, but leaves the OVS-DOCA build of openvswitch-switch they
-      pulled in installed in place of the one from the archive. The unit
-      returns to the kernel datapath once its Open vSwitch no longer offers
-      the `doca` one.
-
-      NOTE: Nothing stops a higher version of openvswitch-switch from the
-      Ubuntu Cloud Archive or from ovn-source replacing the OVS-DOCA build
-      on a subsequent package upgrade.
-  doca-url:
-    type: string
-    default:
-    description: |
-      URL to the NVIDIA DOCA host repository package, which the charm
-      installs to configure the archive the DOCA packages come from.
-
-      The package has to match both the series and the architecture of the
-      unit, for example
-      `doca-host_3.5.0-082000-26.07-ubuntu2404_amd64.deb` for Noble on
-      amd64.
-
-      Leave this unset to install the DOCA packages from an archive you
-      configured on the unit yourself, for example by downloading the host
-      repository package and running `dpkg -i` on it, by a local mirror, or
-      by the image a DPU was provisioned from. The charm then touches
-      neither the archive nor the package that configures it, and a unit
-      where it cannot find the DOCA packages reports that in its workload
-      status.
   enable-sriov:
     type: boolean
     default: false
