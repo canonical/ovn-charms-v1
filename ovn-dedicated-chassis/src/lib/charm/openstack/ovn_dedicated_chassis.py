@@ -42,6 +42,14 @@ class OVNChassisCharm(charms.ovn_charm.DeferredEventMixin,
     name = 'ovn-dedicated-chassis'
     configuration_class = OVNDedicatedChassisConfigurationAdapter
 
+    @property
+    def restart_map(self):
+        restart_map = super().restart_map
+        if self.enable_openstack:
+            restart_map['/etc/neutron/nova-metadata-ca.crt'] = [
+                'neutron-ovn-metadata-agent']
+        return restart_map
+
     # NOTE(fnordahl): Add this to ``layer-ovn``
     def install(self, check_deferred_events=True):
         self.configure_source()

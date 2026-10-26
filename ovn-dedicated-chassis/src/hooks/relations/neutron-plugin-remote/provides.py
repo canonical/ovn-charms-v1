@@ -14,10 +14,11 @@
 
 """The neutron-plugin-remote metadata protocol for remotely managed chassis.
 
-Nova advertises the credentials it already uses for its local metadata proxy.
-Each DPU consumes an address and secret from the same compute unit. Different
-compute units can therefore retain their local, per-unit secrets.
+Nova advertises the endpoint and credentials of its metadata API. Each chassis
+consumes a complete advertisement from one unit, including transport settings.
 """
+
+import base64
 
 from charms.reactive import Endpoint, toggle_flag, when, when_not
 
@@ -42,25 +43,58 @@ class NeutronPluginRemoteProvides(Endpoint):
         toggle_flag(self.expand_name('{endpoint_name}.connected'), ready)
 
     @property
-    def metadata_endpoint(self):
-        """Select one compute unit's complete (address, secret) pair.
+    def metadata_settings(self):
+        """Select one unit's complete metadata advertisement.
 
         Endpoint orders joined units by relation ID and unit name and excludes
         departing units. Skip incomplete advertisements rather than combining
         one unit's address with another unit's credentials. Relation data is a
-        snapshot for the hook, so both template accessors select the same unit.
+        snapshot for the hook, so all template accessors select the same unit.
         """
         for unit in self.all_joined_units:
             data = unit.received_raw
             address = data.get('private-address')
             secret = data.get(METADATA_KEY)
             if address and secret and secret.strip():
-                return address, secret
+                protocol = data.get('nova-metadata-protocol', 'http')
+                port = data.get('nova-metadata-port', 8775)
+                if protocol not in ('http', 'https'):
+                    continue
+                try:
+                    if not 0 < int(port) <= 65535:
+                        continue
+                except (TypeError, ValueError):
+                    continue
+                return data
+        return {}
+
+    @property
+    def metadata_endpoint(self):
+        """Return the selected API address and its signing secret together."""
+        data = self.metadata_settings
+        if data:
+            return data['private-address'], data[METADATA_KEY]
         return None, None
 
     @property
+    def metadata_protocol(self):
+        return self.metadata_settings.get('nova-metadata-protocol', 'http')
+
+    @property
+    def metadata_port(self):
+        return int(self.metadata_settings.get('nova-metadata-port', 8775))
+
+    @property
+    def metadata_ca_cert(self):
+        """Decode the API CA bundle without changing system-wide trust."""
+        ca = self.metadata_settings.get('ca_cert')
+        if ca:
+            return base64.b64decode(ca, validate=True).decode('utf-8')
+        return ''
+
+    @property
     def metadata_host(self):
-        """Address of the compute API whose credentials we consume."""
+        """Address of the Nova metadata API whose credentials we consume."""
         return self.metadata_endpoint[0]
 
     def get_or_create_shared_secret(self):

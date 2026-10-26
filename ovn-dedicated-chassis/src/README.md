@@ -88,61 +88,45 @@ on all chassis with potential to host the consuming payload.
 
 When this charm runs on a SmartNIC DPU, instances using
 [remote-managed ports][ovn-smartnic-dpu] need a Neutron OVN metadata agent on
-the DPU. The `nova-compute` relation enables this agent using the credentials
-already configured for a related compute host's local `ovn-chassis` metadata
-proxy. Nova transmits those credentials to the DPU; the DPU does not generate a
-secret or change the credentials used by local instances.
+the DPU. The `nova-compute` relation (its existing endpoint name) enables
+this agent using nova-cloud-controller's metadata API and signing secret:
 
-This requires a nova-compute charm implementing the `neutron-plugin-remote`
-endpoint with the `neutron-plugin-remote` interface and global scope. Its existing
-`neutron-plugin` endpoint retains container scope for colocated subordinates.
-The new endpoint is declared in nova-compute's `metadata.yaml` as follows:
+    juju integrate ovn-dedicated-chassis:nova-compute nova-cloud-controller:neutron-plugin-remote
 
-```yaml
-requires:
-  neutron-plugin-remote:
-    interface: neutron-plugin-remote
-    scope: global
-```
+This requires a controller charm implementing the global
+`neutron-plugin-remote` interface. Each controller unit publishes:
 
-Each Nova unit must publish the following raw unit relation data after
-configuring its local metadata API:
+* `private-address`: the canonical internal metadata API address, using the
+  VIP when controller HA is configured.
+* `metadata-shared-secret`: the controller's leader-managed signing secret.
+* `nova-metadata-protocol` and `nova-metadata-port`: the API transport settings.
+* `ca_cert`: the base64-encoded API CA bundle, when available.
 
-* `private-address`: the compute metadata API address, reachable on port 8775.
-* `metadata-shared-secret`: the secret already used by that unit's local
-  metadata proxy.
+Each chassis consumes all settings from the same complete advertisement.
+HTTPS verifies the server certificate using the advertised CA bundle, or the
+system trust store when no bundle is supplied. Certificate verification is
+never disabled. The API CA bundle is separate from the OVN database CA.
+Chassis must have network access to the advertised endpoint; HTTP requires a
+protected network path. The relation does not configure network connectivity.
 
-Nova must refresh this advertisement when local credentials change and withdraw
-the secret when local signed metadata is unavailable. Incoming DPU credentials
-must not configure Nova's metadata API. Versions of Nova that only consume a
-DPU-generated secret need the companion credential-forwarding update.
+With an HA controller deployment, HAProxy checks the metadata backends and
+hacluster manages the VIP. Selecting another relation unit is not the service
+failover mechanism. Without controller HA, this relation still advertises a
+single controller endpoint.
 
-With a compatible nova-compute charm deployed, add the relation:
+Keep the existing local nova-compute/ovn-chassis subordinate relation. Local
+agents retain their compute secrets; dedicated chassis use the controller
+secret. The chassis never generates a metadata secret or changes the API's
+credentials. Controller secret and certificate updates re-render the agent
+configuration.
 
-    juju integrate ovn-dedicated-chassis:nova-compute nova-compute:neutron-plugin-remote
-
-The DPU must be able to reach the compute hosts' relation addresses on TCP port
-8775. Relate the dedicated chassis application to the compute application for
-its Nova cell. A compute API can serve metadata for instances on other hosts in
-that cell, including after migration.
-
-Keep the existing `nova-compute` / `ovn-chassis` relation when adding dedicated
-chassis. The DPU automatically adopts existing credentials, so no secret
-configuration or reconciliation action is needed. This also works when the
-local provider is established after the DPU relation: the DPU waits for a
-complete advertisement before enabling metadata.
-
-Compute units may have different local secrets. Each DPU selects the first
-complete advertisement, ordered by relation ID and unit name, and always uses
-the address and secret from that same unit. It re-renders the agent
-configuration on credential changes. If the selected unit leaves the relation
-or withdraws its credentials, the DPU selects another complete pair. It waits
-if none remain; it never combines credentials from different compute units.
-
-When upgrading from an earlier DPU revision that generated its own secret,
-upgrade both charms to the credential-forwarding protocol. The DPU clears its
-obsolete outgoing secret automatically, and Nova retains the local provider's
-credentials throughout. No local metadata relation needs to be removed.
+To migrate, upgrade both charms to this protocol, remove the dedicated
+chassis application's old remote relation to nova-compute, then add the
+controller relation. Do not remove local subordinate relations. Existing
+outgoing secrets from older dedicated-chassis revisions are cleared
+automatically. The agent waits for a complete controller advertisement.
+The controller metadata API must be configured to serve instances behind the
+chassis, including the correct cell routing in multi-cell deployments.
 
 The existing `ovsdb` and `certificates` relations are also required. Once the
 relation is ready, the charm installs and manages `neutron-ovn-metadata-agent`
