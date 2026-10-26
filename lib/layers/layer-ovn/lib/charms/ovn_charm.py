@@ -983,13 +983,13 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
             ])
             return 'blocked', status_msg
 
-        if (self.options.install_doca and not self.options.doca_url and
+        if (self.options.enable_doca and not self.options.doca_url and
                 not self.doca_packages_available()):
             # The operator is expected to have configured the archive when
             # they left doca-url unset, so say when they have not.
             return ('blocked',
-                    '{} is not available, set doca-url or install the DOCA '
-                    'host repository package on this unit.'
+                    '{} is not available, set doca-url and install-doca or'
+                    'install the DOCA host repository package on this unit.'
                     .format(DOCA_METAPACKAGE))
 
         if (self.options.enable_dpdk and
@@ -1002,11 +1002,11 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
 
         # Probing the datapath types requires a database to talk to, so only
         # ask when the answer can change the status.
-        if (self.options.install_doca and
+        if (self.options.enable_doca and
                 ch_core.host.service_running('ovsdb-server')):
             if self.datapath_type != DATAPATH_TYPE_DOCA:
                 return ('blocked',
-                        'install-doca is enabled but ovs-vswitchd does not '
+                        'enable-doca is enabled but ovs-vswitchd does not '
                         'offer the "{}" datapath, a reboot is required.'
                         .format(DATAPATH_TYPE_DOCA))
             # Only asked of a unit configured for DOCA, to keep the
@@ -1331,13 +1331,13 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         :returns: Whether something changed
         :rtype: bool
         """
-        if not (self.options.install_doca or
-                reactive.is_flag_set(DOCA_MANAGED_FLAG)):
-            # Neither ours to enable nor ours to disable.
+        if not self.options.enable_doca:
+            # Do not enable
             return False
         something_changed = self._reconcile_open_vswitch('other_config', (
-            ('doca-init', 'true' if self.options.install_doca else None),))
-        if not self.options.install_doca:
+            ('doca-init', 'true' if self.options.enable_doca else None),))
+        if reactive.is_flag_set(DOCA_MANAGED_FLAG) and \
+           not self.options.install_doca:
             # The packages have been removed and the offload provider turned
             # off, so nothing DOCA on this unit is ours any more.  Done here
             # rather than next to the removal itself, as this is the last of

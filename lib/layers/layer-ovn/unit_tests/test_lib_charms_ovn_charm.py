@@ -335,6 +335,7 @@ class TestOVNConfigurationAdapterSerial(test_utils.PatchHelper):
                 'enable-hardware-offload': False,
                 'enable-sriov': False,
                 'install-doca': False,
+                'enable-doca': False,
                 'enable-dpdk': False,
                 'vpd-device-spec':
                 '[{"bus": "pci", "vendor_id": "b3ef", "device_id": "caf3"}]',
@@ -385,6 +386,7 @@ class TestOVNConfigurationAdapterSerial(test_utils.PatchHelper):
                 'enable-hardware-offload': False,
                 'enable-sriov': False,
                 'install-doca': False,
+                'enable-doca': False,
                 'enable-dpdk': False,
                 'vpd-device-spec': ''
             }
@@ -424,6 +426,7 @@ class TestOVNConfigurationAdapterSerial(test_utils.PatchHelper):
                     'enable-hardware-offload': False,
                     'enable-sriov': False,
                     'install-doca': False,
+                    'enable-doca': False,
                     'enable-dpdk': False,
                     'vpd-device-spec': invalid_spec
                 }
@@ -447,6 +450,7 @@ class TestOVNConfigurationAdapterDPDKOverlap(test_utils.PatchHelper):
                 'enable-hardware-offload': False,
                 'enable-sriov': False,
                 'install-doca': False,
+                'enable-doca': False,
                 'enable-dpdk': True,
             }
             return opts[k] if k else opts
@@ -529,6 +533,7 @@ class Helper(test_utils.PatchHelper):
                 'enable-hardware-offload': False,
                 'enable-sriov': False,
                 'install-doca': False,
+                'enable-doca': False,
                 'enable-dpdk': False,
                 'bridge-interface-mappings': 'br-ex:eth0',
                 'prefer-chassis-as-gw': False,
@@ -624,6 +629,7 @@ class TestDPDKOVNChassisCharmExtraLibs(Helper):
             'enable-hardware-offload': False,
             'enable-sriov': False,
             'install-doca': False,
+            'enable-doca': False,
             'enable-dpdk': True,
             'dpdk-bond-mappings': ('dpdk-bond0:a0:36:9f:dd:37:a4 '
                                    'dpdk-bond0:a0:36:9f:dd:3e:9c'),
@@ -812,6 +818,7 @@ class TestDPDKOVNChassisCharm(Helper):
             'enable-hardware-offload': False,
             'enable-sriov': False,
             'install-doca': False,
+            'enable-doca': False,
             'enable-dpdk': True,
             'dpdk-bond-mappings': ('dpdk-bond0:a0:36:9f:dd:37:a4 '
                                    'dpdk-bond0:a0:36:9f:dd:3e:9c'),
@@ -1109,6 +1116,7 @@ class TestOVNChassisCharmOvnSourceFocal(Helper):
     def setUp(self):
         super().setUp(config={'enable_dpdk': False,
                               'install-doca': False,
+                              'enable-doca': False,
                               'ovn-source': ''})
 
     def test_configure_sources(self):
@@ -1140,6 +1148,7 @@ class TestOVNDedicatedChassisCharmSourceOption(Helper):
     def setUp(self):
         super().setUp(config={'enable_dpdk': False,
                               'install-doca': False,
+                              'enable-doca': False,
                               'source': 'cloud:focal-yoga',
                               'ovn-source': ''})
 
@@ -1159,6 +1168,7 @@ class TestOVNChassisCharm(Helper):
             'enable-hardware-offload': False,
             'enable-sriov': False,
             'install-doca': False,
+            'enable-doca': False,
             'enable-dpdk': False,
             'bridge-interface-mappings': (
                 'br-provider:00:01:02:03:04:05 br-other:eth5'),
@@ -1203,18 +1213,6 @@ class TestOVNChassisCharm(Helper):
         ovsdb.open_vswitch.set.assert_not_called()
         ovsdb.open_vswitch.remove.assert_not_called()
 
-    def test_configure_ovs_doca_ours(self):
-        self.patch_object(ovn_charm.reactive, 'is_flag_set',
-                          return_value=True)
-        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
-        ovsdb = mock.MagicMock()
-        ovsdb.open_vswitch.__iter__.return_value = [{
-            'other_config': {'doca-init': 'true'}}]
-        self.SimpleOVSDB.return_value = ovsdb
-        self.assertTrue(self.target.configure_ovs_doca())
-        ovsdb.open_vswitch.remove.assert_called_once_with(
-            '.', 'other_config', 'doca-init')
-
     def test_configure_ovs_doca_relinquishes_ownership(self):
         self.patch_object(ovn_charm.reactive, 'is_flag_set',
                           return_value=True)
@@ -1224,6 +1222,7 @@ class TestOVNChassisCharm(Helper):
         ovsdb.open_vswitch.__iter__.return_value = [{
             'other_config': {'doca-init': 'true'}}]
         self.SimpleOVSDB.return_value = ovsdb
+        self.target.options.enable_doca = True
         self.target.configure_ovs_doca()
         self.clear_flag.assert_called_once_with('charm.ovn.doca-managed')
 
@@ -2020,6 +2019,7 @@ class TestSRIOVOVNChassisCharm(Helper):
             'enable-hardware-offload': False,
             'enable-sriov': True,
             'install-doca': False,
+            'enable-doca': False,
             'enable-dpdk': False,
             'bridge-interface-mappings': 'br-ex:eth0',
             'ovn-bridge-mappings': 'physnet2:br-ex',
@@ -2075,6 +2075,7 @@ class TestDOCAOVNChassisCharm(Helper):
             'enable-sriov': False,
             'enable-dpdk': False,
             'install-doca': True,
+            'enable-doca': True,
             'doca-url': 'https://example.com/doca-host.deb',
             'bridge-interface-mappings': 'br-data:bond0',
             'ovn-bridge-mappings': 'physnet1:br-data',
@@ -2474,6 +2475,7 @@ class TestHWOffloadChassisCharm(Helper):
             'enable-sriov': False,
             'enable-dpdk': False,
             'install-doca': False,
+            'enable-doca': False,
             'bridge-interface-mappings': 'br-ex:eth0',
             'ovn-bridge-mappings': 'physnet2:br-ex',
             'ovn-source': 'distro',
