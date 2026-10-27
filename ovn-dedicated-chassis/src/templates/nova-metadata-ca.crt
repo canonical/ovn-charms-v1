@@ -1,0 +1,1 @@
+{{ nova_compute.metadata_ca_cert }}
