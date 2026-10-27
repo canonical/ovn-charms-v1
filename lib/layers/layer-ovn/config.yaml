@@ -311,7 +311,12 @@ options:
 
       Example: 2,4,5-9,^7,16-23,^20,^22
 
-      Only used when DPDK is enabled.
+      The charm also sets the number of receive queues (n_rxq) of the
+      interfaces in bridge-interface-mappings to the number of CPUs in this
+      set, so that every PMD thread polls the physical ports.
+
+      Only used with a userspace datapath, that is when DPDK is enabled or
+      Open vSwitch offers the `doca` datapath.
 
       NOTE: It is recommended to avoid overlap between datapath (pmd-cpu-mask)
       and non-datapath (dpdk-lcore-mask) cpus. The charm will go into blocked

@@ -134,6 +134,24 @@ def ifdata_for_datapath(ifdata, datapath_type):
     }
 
 
+def ifdata_for_rxq(ifdata, n_rxq):
+    """Set the number of receive queues in interface data.
+
+    :param ifdata: Interface data
+    :type ifdata: Dict[str,any]
+    :param n_rxq: Number of receive queues, or None to leave it unset
+    :type n_rxq: Optional[str]
+    :returns: Interface data
+    :rtype: Dict[str,any]
+    """
+    if not n_rxq:
+        return ifdata
+    return {
+        **ifdata,
+        'options': {**ifdata.get('options', {}), 'n_rxq': n_rxq},
+    }
+
+
 class DeferredEventMixin():
     """Mixin to add to charm class to add support for deferred events."""
 
@@ -1301,11 +1319,23 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
             ('dpdk-extra',
              self.dpdk_eal_allow_devices(dpdk_context.devices())
              if self.options.enable_dpdk else None),
-            ('pmd-cpu-mask',
-             dpdk_context.pmd_cpu_mask()
-             if self.options.enable_dpdk and self.options.pmd_cpu_set
-             else None),
+            ('pmd-cpu-mask', self.pmd_cpu_mask()),
         ))
+
+    def pmd_cpu_mask(self):
+        """CPU mask for the PMD threads of a userspace datapath.
+
+        Both the ``netdev`` datapath used by DPDK and the ``doca`` one poll
+        their ports from PMD threads, which the kernel datapath has none of.
+
+        :returns: Hex formatted CPU mask, or None to use the OVS default
+        :rtype: Optional[str]
+        """
+        if (not self.options.pmd_cpu_set or
+                self.datapath_type == DATAPATH_TYPE_SYSTEM):
+            return None
+        return os_context.OVSDPDKDeviceContext(
+            bridges_key=self.bridges_key).pmd_cpu_mask()
 
     def configure_ovs_hw_offload(self):
         """Configure hardware offload specific bits in Open vSwitch.
@@ -1319,6 +1349,11 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
              if self.options.enable_hardware_offload else None),
             ('max-idle',
              '30000'
+             if self.options.enable_hardware_offload else None),
+            # Only understood by NVIDIA's builds of Open vSwitch, which
+            # leave connection tracking of IPv6 flows in software otherwise.
+            ('hw-offload-ct-ipv6-enabled',
+             'true'
              if self.options.enable_hardware_offload else None),
         ))
 
@@ -1599,8 +1634,14 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
                 ovn_br_map_str += '{}:{}'.format(network, bridge)
 
         datapath_type = self.datapath_type
+        # One receive queue per PMD thread, so that every PMD core polls the
+        # physical ports.
+        pmd_cpu_mask = self.pmd_cpu_mask()
+        n_rxq = (str(bin(int(pmd_cpu_mask, 16)).count('1'))
+                 if pmd_cpu_mask else None)
         restart_required = False
-        ports = ch_ovsdb.SimpleOVSDB('ovs-vsctl').port
+        ovsdb = ch_ovsdb.SimpleOVSDB('ovs-vsctl')
+        ports = ovsdb.port
         for bridge in self.charm_managed_bridges():
             if bridge.get('datapath_type') != datapath_type:
                 # ``ovs-vswitchd`` opens the datapath when it instantiates a
@@ -1662,11 +1703,17 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
                 ifdatamap = bim.get_ifdatamap(br, port)
                 ifdatamap = {
                     ifname: {
-                        **ifdata_for_datapath(ifdata, datapath_type),
+                        **ifdata_for_rxq(
+                            ifdata_for_datapath(ifdata, datapath_type),
+                            n_rxq),
                         **{'external-ids': {'charm-ovn-chassis': br}},
                     }
                     for ifname, ifdata in ifdatamap.items()
                 }
+                if not n_rxq:
+                    # ``add_bridge_port`` only ever adds options.
+                    for ifname in ifdatamap:
+                        ovsdb.interface.remove(ifname, 'options', 'n_rxq')
 
                 if len(ifdatamap) > 1:
                     ch_ovs.add_bridge_bond(br, port, list(ifdatamap.keys()),
