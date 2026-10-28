@@ -29,7 +29,7 @@ netifaces>=0.10.4
 netaddr>=0.7.12,!=0.7.16
 Jinja2>=2.6  # BSD License (3 clause)
 six>=1.9.0
-dnspython>=1.12.0
+dnspython>=2.9.0
 psutil>=1.1.1,<2.0.0
 # osc-lib-4.0.0 introduced typing hints making it incompatible with py38.
 # https://github.com/openstack/osc-lib/commit/3d221e5992a74d6bb7d1b725e43015b8c87b9718
