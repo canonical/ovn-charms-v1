@@ -1711,9 +1711,17 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
                     for ifname, ifdata in ifdatamap.items()
                 }
                 if not n_rxq:
-                    # ``add_bridge_port`` only ever adds options.
+                    # ``add_bridge_port`` only ever adds options, so a stale
+                    # ``n_rxq`` left behind after ``pmd-cpu-set`` was unset
+                    # has to be removed explicitly.  Removing an absent key
+                    # makes ``ovs-vsctl`` fail, so only remove it from
+                    # interfaces that actually carry it.
                     for ifname in ifdatamap:
-                        ovsdb.interface.remove(ifname, 'options', 'n_rxq')
+                        for iface in ovsdb.interface.find(
+                                'name={}'.format(ifname)):
+                            if iface.get('options', {}).get('n_rxq'):
+                                ovsdb.interface.remove(
+                                    ifname, 'options', 'n_rxq')
 
                 if len(ifdatamap) > 1:
                     ch_ovs.add_bridge_bond(br, port, list(ifdatamap.keys()),
