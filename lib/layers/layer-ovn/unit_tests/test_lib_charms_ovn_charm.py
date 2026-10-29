@@ -2423,6 +2423,7 @@ class TestDOCAOVNChassisCharm(Helper):
         self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
         ovsdb = mock.MagicMock()
         ovsdb.port.find.return_value = []
+        ovsdb.interface.find.return_value = []
         self.SimpleOVSDB.return_value = ovsdb
         self.patch_target('charm_managed_bridges', return_value=[
             {'name': 'br-int', 'datapath_type': 'doca'}])
@@ -2467,7 +2468,26 @@ class TestDOCAOVNChassisCharm(Helper):
                 'external-ids': {'charm-ovn-chassis': 'br-data'}})
 
     def test_configure_bridges_n_rxq_unset(self):
+        # ``pmd-cpu-set`` unset: the interface carries no ``n_rxq`` already,
+        # so there is nothing to remove.
         ovsdb = self.patch_configure_bridges_bond0()
+        self.patch_target('pmd_cpu_mask', return_value=None)
+        self.target.configure_bridges()
+        self.add_bridge_port.assert_called_once_with(
+            'br-data', 'bond0', ifdata={
+                'type': 'doca',
+                'options': {'dpdk-lsc-interrupt': 'true'},
+                'external-ids': {'charm-ovn-chassis': 'br-data'}},
+            linkup=True, promisc=None, portdata={
+                'external-ids': {'charm-ovn-chassis': 'br-data'}})
+        ovsdb.interface.remove.assert_not_called()
+
+    def test_configure_bridges_n_rxq_removed(self):
+        # ``pmd-cpu-set`` unset after having been set: the stale ``n_rxq``
+        # is pruned, since ``add_bridge_port`` only ever adds options.
+        ovsdb = self.patch_configure_bridges_bond0()
+        ovsdb.interface.find.return_value = [
+            {'name': 'bond0', 'options': {'n_rxq': '4'}}]
         self.patch_target('pmd_cpu_mask', return_value=None)
         self.target.configure_bridges()
         self.add_bridge_port.assert_called_once_with(
