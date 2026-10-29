@@ -29,9 +29,10 @@ EPA_API_VERSION = '1.0'
 # hook is not held by one that has stopped answering.
 EPA_TIMEOUT = 10
 
-# Ordinary CPUs balanced by the scheduler, as opposed to the default
-# ``isolated`` pool taken from the ``isolcpus`` kernel parameter.
+# Ordinary CPUs balanced by the scheduler, and CPUs it leaves alone as
+# taken from the ``isolcpus`` kernel parameter.
 EPA_POOL_GENERAL = 'general'
+EPA_POOL_ISOLATED = 'isolated'
 
 # Only hand out CPUs no other service holds, and keep handing out the same
 # ones on every request, rather than taking them back from other services.
@@ -93,8 +94,8 @@ def request(payload, socket_path=EPA_SOCKET):
 
 
 def allocate_numa_cores(service_name, numa_node, num_of_cores,
-                        socket_path=EPA_SOCKET):
-    """Hold general pool CPUs of a NUMA node for a service.
+                        pool=EPA_POOL_GENERAL, socket_path=EPA_SOCKET):
+    """Hold CPUs of a NUMA node for a service.
 
     :param service_name: Name the CPUs are held under.
     :type service_name: str
@@ -103,6 +104,8 @@ def allocate_numa_cores(service_name, numa_node, num_of_cores,
     :param num_of_cores: Number of CPUs, or -1 to release the CPUs held on
                          the NUMA node.
     :type num_of_cores: int
+    :param pool: CPU pool to take the CPUs from.
+    :type pool: str
     :param socket_path: Path to the EPA orchestrator socket.
     :type socket_path: str
     :returns: CPU list of the CPUs held, for example ``8-11,72-75``.
@@ -117,7 +120,7 @@ def allocate_numa_cores(service_name, numa_node, num_of_cores,
         'service_name': service_name,
         'numa_node': numa_node,
         'num_of_cores': num_of_cores,
-        'pool': EPA_POOL_GENERAL,
+        'pool': pool,
         'preemption_policy': EPA_POLICY_NON_PREEMPTIVE,
     }, socket_path=socket_path)
     try:
