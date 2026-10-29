@@ -127,6 +127,27 @@ class TestEPAClient(unittest.TestCase):
             },
         ])
 
+    def test_allocate_numa_cores_isolated(self):
+        # PMD threads poll in a busy loop and want CPUs the scheduler
+        # leaves alone.
+        epa = self.fake_epa(LIST_ALLOCATIONS, {
+            'version': '1.0',
+            'service_name': 'ovs-vswitchd-pmd',
+            'pool': 'isolated',
+            'preemption_policy': 'non-preemptive',
+            'numa_node': 1,
+            'num_of_cores': 4,
+            'cores_allocated': '64-67',
+            'total_available_cpus': 32,
+            'remaining_available_cpus': 28,
+        })
+        self.assertEqual(
+            epa_client.allocate_numa_cores(
+                'ovs-vswitchd-pmd', 1, 4, pool='isolated',
+                socket_path=epa.socket_path),
+            '64-67')
+        self.assertEqual(epa.requests[1]['pool'], 'isolated')
+
     def test_allocate_numa_cores_error(self):
         epa = self.fake_epa(LIST_ALLOCATIONS, {
             'version': '1.0',
