@@ -273,7 +273,7 @@
       "package": "dnspython",
       "type": "python_module",
       "vcs": null,
-      "version": "2.8.0"
+      "version": "2.9.0"
     },
     {
       "package": "MarkupSafe",
