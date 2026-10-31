@@ -1,0 +1,20 @@
+###############################################################################
+# [ WARNING ]
+# Configuration file maintained by Juju. Local changes may be overwritten.
+# Config managed by ovn-chassis charm
+###############################################################################
+{% if ((options.enable_sriov or
+        options.enable_hardware_offload) and
+       options.sriov_device.get_map) -%}
+network:
+  version: 2
+  ethernets:
+    {% for _, pcidnvfs in options.sriov_device.get_map.items() -%}
+    {{ pcidnvfs.device.interface_name }}:
+      virtual-function-count: {{ pcidnvfs.numvfs }}
+    {%- if options.enable_hardware_offload %}
+      embedded-switch-mode: switchdev
+      delay-virtual-functions-rebind: true
+    {% endif %}
+    {% endfor %}
+{% endif %}
