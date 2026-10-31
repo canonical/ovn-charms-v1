@@ -11,7 +11,7 @@ applications:
     charm: ch:vault
     num_units: 1
     series: jammy
-    channel: latest/edge
+    channel: 1.8/stable
 
   ovn-central:
     charm: ch:ovn-central

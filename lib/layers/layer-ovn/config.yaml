@@ -306,21 +306,122 @@ options:
     type: string
     default:
     description: |
+      DEPRECATED: use pmd-cpu-cores instead.
+
       Comma separated list of cpus used for DPDK datapath packet processing.
       The range and caret operators are supported.
 
       Example: 2,4,5-9,^7,16-23,^20,^22
 
+      When set, it is used instead of the CPUs the charm would pick for
+      pmd-cpu-cores, on machines the EPA orchestrator is not deployed to.
+      Where it is deployed this option is not used, as it would put the PMD
+      threads on CPUs EPA may have handed to other services.
+
       The charm also sets the number of receive queues (n_rxq) of the
       interfaces in bridge-interface-mappings to the number of CPUs in this
       set, so that every PMD thread polls the physical ports.
 
-      Only used with a userspace datapath, that is when DPDK is enabled or
-      Open vSwitch offers the `doca` datapath.
-
       NOTE: It is recommended to avoid overlap between datapath (pmd-cpu-mask)
       and non-datapath (dpdk-lcore-mask) cpus. The charm will go into blocked
       state if an overlap is detected.
+  pmd-cpu-cores:
+    type: int
+    default: 4
+    description: |
+      Number of CPUs for the PMD threads of a userspace datapath, that is
+      when DPDK is enabled or Open vSwitch offers the `doca` datapath.
+
+      The CPUs are taken from the NUMA nodes of the interfaces in
+      bridge-interface-mappings, shared evenly between NUMA nodes when the
+      interfaces are on more than one, and from NUMA node 0 when their NUMA
+      node cannot be told.
+
+      PMD threads poll in a busy loop and want CPUs the kernel scheduler
+      leaves alone, so CPUs isolated with the isolcpus kernel parameter are
+      used when the NUMA nodes have enough of them. Otherwise the PMD threads
+      are pinned to CPUs that are not isolated, which costs some packet
+      latency but beats leaving the choice to Open vSwitch, which picks the
+      first CPU of a NUMA node, where kernel housekeeping and interrupts run.
+      The unit log says when that happens.
+
+      On machines the EPA orchestrator is deployed to, the PMD threads share
+      the host with other services pinned through it, such as Ceph OSDs, so
+      the CPUs are obtained from it, from its isolated CPU pool or else its
+      general one, and only when no other service holds them. On machines it
+      is not deployed to, such as DPUs, the PMD threads have the CPUs to
+      themselves, and the charm picks the lowest numbered isolated CPUs, or
+      else the highest numbered CPUs, which are furthest from kernel
+      housekeeping and interrupts.
+
+      The charm also sets the number of receive queues (n_rxq) of the
+      interfaces in bridge-interface-mappings to this number, so that every
+      PMD thread polls the physical ports.
+
+      When there are not enough CPUs at all, or the EPA orchestrator cannot
+      provide them, Open vSwitch places the PMD threads itself, and the unit
+      says so in its workload status.
+
+      Set to 0 to let Open vSwitch place the PMD threads and release any
+      CPUs held for them.
+
+      NOTE: Changing which CPUs the PMD threads are pinned to restarts
+      openvswitch-switch, resulting in an expected data plane outage while
+      the service restarts.
+  ovs-cpu-cores:
+    type: int
+    default: 16
+    description: |
+      Number of CPUs to pin the ovs-vswitchd process to, on machines the
+      EPA orchestrator is deployed to.
+
+      The default of 16, eight cores and their SMT siblings, leaves room for
+      the handler and revalidator threads of a busy hyperconverged host.
+
+      The CPUs are obtained from the EPA orchestrator, which keeps track of
+      the CPUs handed out to each service on a host, so ovs-vswitchd does
+      not end up on CPUs pinned to other services, such as Ceph OSDs, through
+      it. Deploy the epa-orchestrator charm on the same machines to make it
+      available.
+
+      The CPUs are taken from the NUMA node local to the interfaces in
+      bridge-interface-mappings, shared evenly between NUMA nodes when the
+      interfaces are on more than one, and from NUMA node 0 when their NUMA
+      node cannot be told. NUMA nodes without CPUs, such as those of CXL
+      memory expanders, are not considered.
+
+      They come from the EPA general CPU pool, as the threads of
+      ovs-vswitchd need CPUs the kernel balances load across, and are only
+      handed out when no other service holds them. The pool has to be
+      configured on each machine, for example:
+
+          sudo snap set epa-orchestrator cpu-pool=128-191,384-447
+
+      This requires an epa-orchestrator snap with support for CPU pools and
+      non-preemptive allocations, as an older one would take the CPUs it
+      hands out away from the services holding them. The charm does not ask
+      an older one for any.
+
+      Machines the EPA orchestrator is not deployed to are left alone. When
+      it is deployed but cannot provide the CPUs, ovs-vswitchd is left
+      unpinned, and the unit says so in its workload status.
+
+      NOTE: The charm talks to the EPA orchestrator on the machine rather
+      than through a relation, so it is not told when the EPA orchestrator
+      is deployed or its CPU pool changes. Run the resume action, or make
+      any other change that runs a hook, to have the unit pick it up.
+
+      This does not affect the DPDK or DOCA PMD threads, which are placed
+      according to pmd-cpu-cores. With DPDK enabled, dpdk-lcore-mask is not
+      set while ovs-vswitchd is pinned, so that DPDK runs its main lcore on
+      one of the pinned CPUs and Open vSwitch keeps its other threads on
+      them, which an explicit lcore mask would prevent.
+
+      Set to 0 to not pin ovs-vswitchd and release the CPUs held for it.
+
+      NOTE: Changing which CPUs ovs-vswitchd is pinned to restarts
+      openvswitch-switch, resulting in an expected data plane outage while
+      the service restarts.
   sriov-device-mappings:
     type: string
     default:

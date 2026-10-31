@@ -15,8 +15,10 @@
 import collections
 import copy
 import io
+import os
 import textwrap
 import subprocess
+import tempfile
 import unittest.mock as mock
 import uuid
 
@@ -239,8 +241,6 @@ class TestOVNConfigurationAdapter(test_utils.PatchHelper):
         }
         self.patch('charmhelpers.contrib.openstack.context.SRIOVContext',
                    name='SRIOVContext')
-        self.patch_object(ovn_charm.OVNConfigurationAdapter,
-                          '_ovs_dpdk_cpu_overlap_check')
         m = mock.patch.object(ovn_charm.ch_core.hookenv, 'config')
         m.start()
         self.target = ovn_charm.OVNConfigurationAdapter(
@@ -262,6 +262,15 @@ class TestOVNConfigurationAdapter(test_utils.PatchHelper):
         self.assertDictEqual(self.target.dpdk_device.devices,
                              {'fakepci': 'fakeif'})
         self.assertEqual(self.target.dpdk_device.driver, 'fakedriver')
+
+    def test_bridge_interface_map_cached(self):
+        # The map is read more than once in a hook, by the CPU pinning as
+        # well as the bridge configuration.
+        self.patch_object(ovn_charm.os_context, 'BridgePortInterfaceMap')
+        bim = self.BridgePortInterfaceMap.return_value
+        self.assertIs(self.target.bridge_interface_map, bim)
+        self.assertIs(self.target.bridge_interface_map, bim)
+        self.BridgePortInterfaceMap.assert_called_once()
 
     def test_sriov_device(self):
         self.assertEqual(self.target.sriov_device, self.SRIOVContext())
@@ -457,7 +466,7 @@ class TestOVNConfigurationAdapterDPDKOverlap(test_utils.PatchHelper):
 
         self.config.side_effect = _config_side_effect
 
-    def test_ovs_dpdk_cpu_overlap_check(self):
+    def test_ovs_dpdk_cpu_overlap_not_from_config(self):
         self.patch_object(ovn_charm.os_context, 'DPDKDeviceContext')
         self.DPDKDeviceContext().return_value = {}
         dpdk_context = mock.MagicMock()
@@ -467,16 +476,13 @@ class TestOVNConfigurationAdapterDPDKOverlap(test_utils.PatchHelper):
         dpdk_context.cpu_mask.return_value = '0x42'
         # 101011110000000010011101
         dpdk_context.pmd_cpu_mask.return_value = '0xaf009d'
+        # 101011110000000011011111
+        dpdk_context.pmd_cpu_mask.return_value = '0xaf00df'
+        # pmd-cpu-set is not what the PMD threads necessarily end up on, so
+        # the overlap is checked against what Open vSwitch was given.
         self.target = ovn_charm.OVNConfigurationAdapter(
             charm_instance=self.charm_instance)
         self.assertEqual(self.target.validation_errors, {})
-        # 101011110000000011011111
-        dpdk_context.pmd_cpu_mask.return_value = '0xaf00df'
-        self.target = ovn_charm.OVNConfigurationAdapter(
-            charm_instance=self.charm_instance)
-        self.assertEqual(self.target.validation_errors, {
-            'pmd-cpu-mask': 'Fix overlap between dpdk-lcore-mask'
-                            ' and pmd-cpu-mask.'})
 
 
 class TestIfdataForDatapath(test_utils.PatchHelper):
@@ -526,6 +532,22 @@ class Helper(test_utils.PatchHelper):
             },
             'driver': 'fakedriver',
         }
+        tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmpdir.cleanup)
+        self.sysfs = tmpdir.name
+        self.cpu_affinity_drop_in = os.path.join(
+            tmpdir.name, 'ovs-vswitchd.service.d', 'charm-cpu-affinity.conf')
+        self.patch_object(ovn_charm, 'OVS_VSWITCHD_CPU_AFFINITY_DROP_IN',
+                          new=self.cpu_affinity_drop_in)
+        self.patch_object(ovn_charm.epa_client, 'is_available',
+                          name='epa_available', return_value=False)
+        # Never look at the sysfs of the machine running the tests.
+        for attr, path in (('SYSFS_NET', 'net'),
+                           ('SYSFS_PCI', 'pci'),
+                           ('SYSFS_NUMA', 'node'),
+                           ('SYSFS_CPU', 'cpu')):
+            self.patch_object(ovn_charm, attr,
+                              new=os.path.join(self.sysfs, path))
         self.patch_object(ovn_charm.ch_core.hookenv, 'config')
 
         def _fake_config(x=None):
@@ -581,6 +603,46 @@ class Helper(test_utils.PatchHelper):
         started.return_value = return_value
         self._patches_start[attr] = started
         setattr(self, attr, started)
+
+    def patch_sysfs(self, numa_nodes=2, memory_only=()):
+        """Point the charm at a fake sysfs with ``numa_nodes`` NUMA nodes.
+
+        :param numa_nodes: Number of NUMA nodes, with 64 CPUs each.
+        :type numa_nodes: int
+        :param memory_only: NUMA nodes without CPUs, out of those.
+        :type memory_only: Iterable[int]
+        """
+        for path in ('net', 'pci', 'node', 'cpu'):
+            os.makedirs(os.path.join(self.sysfs, path))
+        for node in range(numa_nodes):
+            node_dir = os.path.join(self.sysfs, 'node', f'node{node}')
+            os.makedirs(node_dir)
+            with open(os.path.join(node_dir, 'cpulist'), 'w') as f:
+                if node not in memory_only:
+                    f.write(f'{node * 64}-{node * 64 + 63}')
+                f.write('\n')
+        # Not a NUMA node.
+        os.makedirs(os.path.join(self.sysfs, 'node', 'power'))
+
+    def add_netdev(self, name, numa_node=None, lower=()):
+        """Add a network device to the fake sysfs.
+
+        :param name: Name of the device.
+        :type name: str
+        :param numa_node: NUMA node of the PCI device behind it, if any.
+        :type numa_node: Optional[int]
+        :param lower: Devices it is stacked on, for example bond members.
+        :type lower: Iterable[str]
+        """
+        netdev = os.path.join(self.sysfs, 'net', name)
+        os.makedirs(netdev)
+        if numa_node is not None:
+            os.makedirs(os.path.join(netdev, 'device'))
+            with open(os.path.join(netdev, 'device', 'numa_node'), 'w') as f:
+                f.write(f'{numa_node}\n')
+        for member in lower:
+            os.symlink(os.path.join(self.sysfs, 'net', member),
+                       os.path.join(netdev, f'lower_{member}'))
 
     def patch_datapath_types(self, datapath_types):
         """Present ``datapath_types`` as offered by ovs-vswitchd.
@@ -650,8 +712,6 @@ class TestDPDKOVNChassisCharmExtraLibs(Helper):
         self.run.start()
         self.called_process = self.run.return_value
         self.called_process.returncode = 0
-        self.patch_object(ovn_charm.OVNConfigurationAdapter,
-                          '_ovs_dpdk_cpu_overlap_check')
 
     def test_single_match(self):
         apt_cache_output = textwrap.dedent(
@@ -831,9 +891,9 @@ class TestDPDKOVNChassisCharm(Helper):
             'vpd-device-spec': '',
             'pmd-cpu-set': '',
             'ovn-source': 'distro',
+            'ovs-cpu-cores': 0,
+            'pmd-cpu-cores': 4,
         })
-        self.patch_object(ovn_charm.OVNConfigurationAdapter,
-                          '_ovs_dpdk_cpu_overlap_check')
 
     def test_datapath_type(self):
         self.assertEqual(self.target.datapath_type, 'netdev')
@@ -871,7 +931,7 @@ class TestDPDKOVNChassisCharm(Helper):
         }
         mock_bpi = mock.MagicMock()
         mock_bpi.items.return_value = dict_bpi.items()
-        mock_bpi.__iter__.return_value = dict_bpi.__iter__()
+        mock_bpi.__iter__.side_effect = lambda: iter(dict_bpi)
         mock_bpi.__contains__.side_effect = dict_bpi.__contains__
         mock_bpi.__getitem__.side_effect = lambda x: dict_bpi.__getitem__(x)
         mock_bpi.get_ifdatamap.side_effect = lambda x, y: {
@@ -990,6 +1050,54 @@ class TestDPDKOVNChassisCharm(Helper):
             self.target.dpdk_eal_allow_devices(devices),
             '-w 0000:42:01.0 -w 0000:42:02.0')
 
+    def patch_applied_masks(self, other_config):
+        self.patch_object(ovn_charm.ch_core.host, 'service_running',
+                          return_value=True)
+        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
+        ovsdb = mock.MagicMock()
+        ovsdb.open_vswitch.__iter__.return_value = [{
+            'datapath_types': ['system', 'netdev'],
+            'other_config': other_config,
+        }]
+        self.SimpleOVSDB.return_value = ovsdb
+
+    def test_custom_assess_status_last_check_overlap(self):
+        self.patch_applied_masks({'dpdk-lcore-mask': '0x1',
+                                  'pmd-cpu-mask': '0xf'})
+        self.assertEqual(
+            self.target.custom_assess_status_last_check(),
+            ('blocked',
+             'Fix overlap between dpdk-lcore-mask and pmd-cpu-mask.'))
+
+    def test_custom_assess_status_last_check_no_overlap(self):
+        self.patch_applied_masks({'dpdk-lcore-mask': '0x1',
+                                  'pmd-cpu-mask': '0x1e'})
+        self.assertEqual(self.target.custom_assess_status_last_check(),
+                         (None, None))
+
+    def test_configure_ovs_dpdk_pinned(self):
+        # Open vSwitch only restores the affinity of its main thread after
+        # DPDK has moved it to the main lcore when it picked the lcore
+        # itself, so an explicit dpdk-lcore-mask would take ovs-vswitchd
+        # off the CPUs it is pinned to.
+        dpdk_context = mock.MagicMock()
+        self.patch_object(ovn_charm.os_context, 'OVSDPDKDeviceContext',
+                          return_value=dpdk_context)
+        dpdk_context.cpu_mask.return_value = '0x1'
+        self.patch_target('dpdk_eal_allow_devices')
+        self.patch_target('pmd_cpu_mask', return_value=None)
+        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
+        ovsdb = mock.MagicMock()
+        ovsdb.open_vswitch.__iter__.return_value = [{
+            'other_config': {'dpdk-lcore-mask': '0x1'}}]
+        self.SimpleOVSDB.return_value = ovsdb
+        os.makedirs(os.path.dirname(self.cpu_affinity_drop_in))
+        with open(self.cpu_affinity_drop_in, 'w') as f:
+            f.write('[Service]\nCPUAffinity=8-23\n')
+        self.assertTrue(self.target.configure_ovs_dpdk())
+        ovsdb.open_vswitch.remove.assert_called_once_with(
+            '.', 'other_config', 'dpdk-lcore-mask')
+
     def test_configure_ovs_dpdk(self):
         dpdk_context = mock.MagicMock()
         self.patch_object(ovn_charm.os_context, 'OVSDPDKDeviceContext',
@@ -998,8 +1106,6 @@ class TestDPDKOVNChassisCharm(Helper):
         self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
         opvs = mock.MagicMock()
         self.SimpleOVSDB.return_value = opvs
-
-        self._ovs_dpdk_cpu_overlap_check.return_value = False
 
         # No existing config, confirm restart and values set as expected
         opvs.open_vswitch.__iter__.return_value = [
@@ -1182,6 +1288,8 @@ class TestOVNChassisCharm(Helper):
             'ovs-exporter-channel': '',
             'enable-version-pinning': False,
             'pmd-cpu-set': None,
+            'ovs-cpu-cores': 0,
+            'pmd-cpu-cores': 4,
         }
         super().setUp(config=self.local_config)
 
@@ -1205,6 +1313,493 @@ class TestOVNChassisCharm(Helper):
         self.patch_datapath_types(['system', 'netdev'])
         self.target.options.pmd_cpu_set = '8-11'
         self.assertIsNone(self.target.pmd_cpu_mask())
+
+    def patch_bridge_interface_map(self, ifdatamap):
+        """Map one port with interfaces ``ifdatamap`` on ``br-data``."""
+        bim = mock.MagicMock()
+        bim.__iter__.return_value = iter(['br-data'])
+        bim.__getitem__.side_effect = lambda br: ['port0']
+        bim.get_ifdatamap.return_value = ifdatamap
+        self.patch_object(ovn_charm.OVNConfigurationAdapter,
+                          'bridge_interface_map', new=bim)
+
+    def test_interface_numa_nodes(self):
+        self.patch_sysfs()
+        self.add_netdev('eth0', numa_node=1)
+        self.assertEqual(ovn_charm.interface_numa_nodes('eth0', {}), {1})
+
+    def test_interface_numa_nodes_bond(self):
+        # A bond has no device of its own, its members do.
+        self.patch_sysfs()
+        self.add_netdev('eth0', numa_node=0)
+        self.add_netdev('eth1', numa_node=1)
+        self.add_netdev('bond0', lower=('eth0', 'eth1'))
+        self.assertEqual(ovn_charm.interface_numa_nodes('bond0', {}), {0, 1})
+
+    def test_interface_numa_nodes_without_numa(self):
+        # The kernel reports -1 for a device not attached to a NUMA node.
+        self.patch_sysfs()
+        self.add_netdev('eth0', numa_node=-1)
+        self.add_netdev('veth0')
+        self.assertEqual(ovn_charm.interface_numa_nodes('eth0', {}), set())
+        self.assertEqual(ovn_charm.interface_numa_nodes('veth0', {}), set())
+        self.assertEqual(ovn_charm.interface_numa_nodes('missing', {}), set())
+
+    def test_interface_numa_nodes_dpdk(self):
+        # A port bound to a DPDK driver has no network device left.
+        self.patch_sysfs()
+        pci = os.path.join(self.sysfs, 'pci', '0000:42:01.0')
+        os.makedirs(pci)
+        with open(os.path.join(pci, 'numa_node'), 'w') as f:
+            f.write('1\n')
+        self.assertEqual(
+            ovn_charm.interface_numa_nodes(
+                'dpdk-a1b2c3d', {'options': {'dpdk-devargs': '0000:42:01.0'}}),
+            {1})
+
+    def test_host_numa_nodes(self):
+        self.patch_sysfs(numa_nodes=2)
+        self.assertEqual(ovn_charm.host_numa_nodes(), [0, 1])
+
+    def test_host_numa_nodes_memory_only(self):
+        # The EPA orchestrator does not know of NUMA nodes without CPUs,
+        # such as those of CXL memory expanders, and refuses any request
+        # for them, releases included.
+        self.patch_sysfs(numa_nodes=3, memory_only=(2,))
+        self.assertEqual(ovn_charm.host_numa_nodes(), [0, 1])
+
+    def test_ovs_numa_nodes(self):
+        self.patch_sysfs()
+        self.add_netdev('eth1', numa_node=1)
+        self.patch_bridge_interface_map({'eth1': {}})
+        self.assertEqual(self.target.ovs_numa_nodes(), [1])
+
+    def test_ovs_numa_nodes_without_cpus(self):
+        # A port on a NUMA node without CPUs, such as one only holding CXL
+        # memory, has its share of CPUs taken from the other nodes.
+        self.patch_sysfs(numa_nodes=4, memory_only=(3,))
+        self.add_netdev('eth1', numa_node=1)
+        self.add_netdev('eth3', numa_node=3)
+        self.patch_bridge_interface_map({'eth1': {}, 'eth3': {}})
+        self.patch_object(ovn_charm.ch_core.hookenv, 'log')
+        self.assertEqual(self.target.ovs_numa_nodes(), [1])
+        self.assertTrue(any('without CPUs' in c.args[0]
+                            for c in self.log.call_args_list))
+
+    def test_allocate_ovs_cpus_port_without_cpus(self):
+        # Every CPU asked for is held, rather than the share of the node
+        # without CPUs going missing.
+        self.patch_epa(16, allocate={1: '64-71,192-199'})
+        for node, cpulist in ((2, '128-191'), (3, '')):
+            node_dir = os.path.join(self.sysfs, 'node', f'node{node}')
+            os.makedirs(node_dir)
+            with open(os.path.join(node_dir, 'cpulist'), 'w') as f:
+                f.write(cpulist + '\n')
+        self.add_netdev('eth1', numa_node=1)
+        self.add_netdev('eth3', numa_node=3)
+        self.patch_bridge_interface_map({'eth1': {}, 'eth3': {}})
+        self.patch_object(ovn_charm.ch_core.hookenv, 'log')
+        self.target.allocate_ovs_cpus()
+        self.assertIn(('ovs-vswitchd', 1, 16),
+                      [c.args for c in self.allocate_numa_cores.mock_calls])
+
+    def test_ovs_numa_nodes_unknown(self):
+        self.patch_sysfs()
+        self.add_netdev('veth0')
+        self.patch_bridge_interface_map({'veth0': {}})
+        self.assertEqual(self.target.ovs_numa_nodes(), [0])
+
+    def patch_epa(self, ovs_cpu_cores, allocate=None):
+        """Configure ``ovs-cpu-cores`` with the EPA orchestrator installed.
+
+        :param ovs_cpu_cores: Value for the ``ovs-cpu-cores`` option.
+        :type ovs_cpu_cores: int
+        :param allocate: CPUs EPA hands out per NUMA node.
+        :type allocate: Optional[Dict[int,str]]
+        """
+        self.local_config.update({'ovs-cpu-cores': ovs_cpu_cores})
+        self.target = ovn_charm.BaseOVNChassisCharm()
+        self.patch_target('run')
+        self.epa_available.return_value = True
+        self.patch_sysfs()
+        allocate = allocate or {}
+
+        def _allocate(service_name, numa_node, num_of_cores, pool):
+            return allocate.get(numa_node, '') if num_of_cores > 0 else ''
+
+        self.patch_object(ovn_charm.epa_client, 'allocate_numa_cores',
+                          side_effect=_allocate)
+        self.patch_object(ovn_charm.reactive, 'set_flag')
+        self.patch_object(ovn_charm.reactive, 'clear_flag')
+
+    def read_drop_in(self):
+        with open(self.cpu_affinity_drop_in) as f:
+            return f.read()
+
+    def test_configure_ovs_cpu_affinity(self):
+        self.patch_epa(8, allocate={1: '136-139,392-395'})
+        self.patch_target('ovs_numa_nodes', return_value=[1])
+        self.assertTrue(self.target.configure_ovs_cpu_affinity())
+        self.allocate_numa_cores.assert_has_calls([
+            mock.call('ovs-vswitchd', 0, -1, pool='general'),
+            mock.call('ovs-vswitchd', 1, 8, pool='general'),
+        ])
+        self.set_flag.assert_called_once_with('charm.ovn.epa-cores-held')
+        self.assertEqual(self.read_drop_in(),
+                         '[Service]\nCPUAffinity=136-139,392-395\n')
+        self.run.assert_called_once_with('systemctl', 'daemon-reload')
+
+    def test_configure_ovs_cpu_affinity_unchanged(self):
+        self.patch_epa(8, allocate={1: '136-139,392-395'})
+        self.patch_target('ovs_numa_nodes', return_value=[1])
+        os.makedirs(os.path.dirname(self.cpu_affinity_drop_in))
+        with open(self.cpu_affinity_drop_in, 'w') as f:
+            f.write('[Service]\nCPUAffinity=136-139,392-395\n')
+        self.assertFalse(self.target.configure_ovs_cpu_affinity())
+        self.run.assert_not_called()
+
+    def test_configure_ovs_cpu_affinity_numa_nodes(self):
+        # Ports on both NUMA nodes share the cores between them.
+        self.patch_epa(8, allocate={0: '8-11', 1: '136-139'})
+        self.patch_target('ovs_numa_nodes', return_value=[0, 1])
+        self.assertTrue(self.target.configure_ovs_cpu_affinity())
+        self.allocate_numa_cores.assert_has_calls([
+            mock.call('ovs-vswitchd', 0, 4, pool='general'),
+            mock.call('ovs-vswitchd', 1, 4, pool='general'),
+        ])
+        self.assertEqual(self.read_drop_in(),
+                         '[Service]\nCPUAffinity=8-11,136-139\n')
+
+    def test_configure_ovs_cpu_affinity_epa_unavailable(self):
+        self.patch_epa(8)
+        self.epa_available.return_value = False
+        os.makedirs(os.path.dirname(self.cpu_affinity_drop_in))
+        with open(self.cpu_affinity_drop_in, 'w') as f:
+            f.write('[Service]\nCPUAffinity=136-139,392-395\n')
+        self.assertTrue(self.target.configure_ovs_cpu_affinity())
+        self.allocate_numa_cores.assert_not_called()
+        self.assertFalse(os.path.exists(self.cpu_affinity_drop_in))
+        self.run.assert_called_once_with('systemctl', 'daemon-reload')
+
+    def test_configure_ovs_cpu_affinity_epa_error(self):
+        # Whatever EPA handed out before failing goes back, as the CPUs
+        # are not used.
+        self.patch_epa(8)
+        self.patch_target('ovs_numa_nodes', return_value=[1])
+        self.patch_object(ovn_charm.ch_core.hookenv, 'log')
+
+        def _allocate(service_name, numa_node, num_of_cores, pool):
+            if num_of_cores > 0:
+                raise ovn_charm.epa_client.EPAError('out of CPUs')
+            return ''
+
+        self.allocate_numa_cores.side_effect = _allocate
+        self.assertFalse(self.target.configure_ovs_cpu_affinity())
+        self.allocate_numa_cores.assert_has_calls([
+            mock.call('ovs-vswitchd', 0, -1, pool='general'),
+            mock.call('ovs-vswitchd', 1, -1, pool='general'),
+        ])
+        self.clear_flag.assert_called_once_with('charm.ovn.epa-cores-held')
+        self.assertFalse(os.path.exists(self.cpu_affinity_drop_in))
+
+    def test_configure_ovs_cpu_affinity_unset_releases(self):
+        self.patch_epa(0)
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=True)
+        self.assertFalse(self.target.configure_ovs_cpu_affinity())
+        self.allocate_numa_cores.assert_has_calls([
+            mock.call('ovs-vswitchd', 0, -1, pool='general'),
+            mock.call('ovs-vswitchd', 1, -1, pool='general'),
+        ])
+        self.clear_flag.assert_called_once_with('charm.ovn.epa-cores-held')
+
+    def test_configure_ovs_cpu_affinity_unset_release_fails(self):
+        # Turning pinning off must not fail the hook when EPA cannot take
+        # the CPUs back right now, for example as the general pool was
+        # never configured.  It is tried again on the next hook.
+        self.patch_epa(0)
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=True)
+        self.patch_object(ovn_charm.ch_core.hookenv, 'log')
+        self.allocate_numa_cores.side_effect = ovn_charm.epa_client.EPAError(
+            'CPU pool general is not configured')
+        os.makedirs(os.path.dirname(self.cpu_affinity_drop_in))
+        with open(self.cpu_affinity_drop_in, 'w') as f:
+            f.write('[Service]\nCPUAffinity=136-139,392-395\n')
+        self.assertTrue(self.target.configure_ovs_cpu_affinity())
+        self.assertFalse(os.path.exists(self.cpu_affinity_drop_in))
+        self.clear_flag.assert_not_called()
+
+    def test_configure_ovs_cpu_affinity_unset_nothing_held(self):
+        self.patch_epa(0)
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=False)
+        self.assertFalse(self.target.configure_ovs_cpu_affinity())
+        self.allocate_numa_cores.assert_not_called()
+
+    def test_configure_ovs_pins_before_dpdk(self):
+        # Whether ovs-vswitchd is pinned decides the DPDK lcore mask.
+        self.patch_target('run')
+        self.patch_target('check_if_paused', return_value=(None, None))
+        self.patch_target('get_data_ip')
+        self.patch_target('get_ovs_hostname')
+        self.patch_object(ovn_charm.OVNConfigurationAdapter, 'ovn_key')
+        self.patch_object(ovn_charm.OVNConfigurationAdapter, 'ovn_cert')
+        self.patch_object(ovn_charm.OVNConfigurationAdapter, 'ovn_ca_cert')
+        self.patch_object(ovn_charm.ch_core.host, 'service_restart')
+        self.patch_object(ovn_charm.ch_core.host, 'service_start')
+        calls = mock.MagicMock()
+        for method in ('configure_ovs_cpu_affinity', 'configure_ovs_dpdk',
+                       'configure_ovs_hw_offload', 'configure_ovs_doca',
+                       'configure_ovs_datapath'):
+            self.patch_target(method, return_value=False)
+            calls.attach_mock(getattr(self, method), method)
+        self.target.configure_ovs('fake-sb-conn-str', False)
+        names = [c[0] for c in calls.mock_calls]
+        self.assertLess(names.index('configure_ovs_cpu_affinity'),
+                        names.index('configure_ovs_dpdk'))
+
+    def test_configure_ovs_restarts_on_cpu_affinity_change(self):
+        self.patch_target('configure_ovs_cpu_affinity', return_value=True)
+        self.patch_target('run')
+        self.patch_target('check_if_paused', return_value=(None, None))
+        self.patch_target('get_data_ip')
+        self.patch_target('get_ovs_hostname')
+        self.patch_object(ovn_charm.OVNConfigurationAdapter, 'ovn_key')
+        self.patch_object(ovn_charm.OVNConfigurationAdapter, 'ovn_cert')
+        self.patch_object(ovn_charm.OVNConfigurationAdapter, 'ovn_ca_cert')
+        self.patch_object(ovn_charm.ch_core.host, 'service_restart')
+        self.target.configure_ovs('fake-sb-conn-str', False)
+        self.service_restart.assert_called_once_with('openvswitch-switch')
+
+    def test_custom_assess_status_last_check_not_pinned(self):
+        # Pinning is best effort, so the unit keeps working, but says so.
+        self.local_config.update({'ovs-cpu-cores': 16})
+        self.target = ovn_charm.BaseOVNChassisCharm()
+        self.epa_available.return_value = True
+        self.assertEqual(
+            self.target.custom_assess_status_last_check(),
+            ('active', 'ovs-vswitchd is not pinned to the 16 CPUs in '
+                       'ovs-cpu-cores, see the unit log.'))
+
+    def test_custom_assess_status_last_check_without_epa(self):
+        # Pinning is on by default, which says nothing about machines the
+        # EPA orchestrator was not deployed to.
+        self.local_config.update({'ovs-cpu-cores': 16})
+        self.target = ovn_charm.BaseOVNChassisCharm()
+        self.assertEqual(self.target.custom_assess_status_last_check(),
+                         (None, None))
+
+    def test_cpu_list_to_mask(self):
+        self.assertEqual(ovn_charm.cpu_list_to_mask('8-11'), '0xf00')
+        self.assertEqual(ovn_charm.cpu_list_to_mask('0,2-3'), '0xd')
+
+    def write_isolated(self, isolated):
+        """Isolate the CPUs in CPU list ``isolated`` with ``isolcpus``."""
+        with open(os.path.join(self.sysfs, 'cpu', 'isolated'), 'w') as f:
+            f.write(isolated + '\n')
+
+    def patch_epa_pmd(self, allocate=None, datapath_types=('doca',),
+                      isolated='72-79'):
+        """Run a userspace datapath with the EPA orchestrator installed.
+
+        ``pmd-cpu-set`` is set too, to show it is not used then.
+
+        :param allocate: CPUs EPA hands out per NUMA node.
+        :type allocate: Optional[Dict[int,str]]
+        :param datapath_types: Datapath types ovs-vswitchd offers.
+        :type datapath_types: Iterable[str]
+        :param isolated: CPU list of the CPUs isolated with ``isolcpus``.
+        :type isolated: str
+        """
+        self.local_config.update({'pmd-cpu-set': '8-11'})
+        self.patch_epa(0, allocate=allocate)
+        self.write_isolated(isolated)
+        self.patch_target('ovs_datapath_types',
+                          return_value=set(datapath_types))
+        self.patch_target('ovs_numa_nodes', return_value=[1])
+        self.patch_object(ovn_charm.os_context, 'OVSDPDKDeviceContext')
+        self.patch_object(ovn_charm.ch_core.hookenv, 'log')
+
+    def test_pmd_cpu_mask_epa(self):
+        # On a host shared with Ceph the PMD cores come from EPA, from the
+        # isolated pool, as PMD threads poll in a busy loop.  EPA refuses
+        # an owner that holds CPUs in the other pool, so those go first.
+        self.patch_epa_pmd(allocate={1: '72-75'})
+        self.assertEqual(self.target.pmd_cpu_mask(),
+                         ovn_charm.cpu_list_to_mask('72-75'))
+        self.allocate_numa_cores.assert_has_calls([
+            mock.call('ovs-vswitchd-pmd', 0, -1, pool='general'),
+            mock.call('ovs-vswitchd-pmd', 1, -1, pool='general'),
+            mock.call('ovs-vswitchd-pmd', 0, -1, pool='isolated'),
+            mock.call('ovs-vswitchd-pmd', 1, 4, pool='isolated'),
+        ])
+        self.set_flag.assert_called_once_with(
+            'charm.ovn.epa-pmd-cores-held.isolated')
+        self.clear_flag.assert_called_once_with(
+            'charm.ovn.epa-pmd-cores-held.general')
+        self.OVSDPDKDeviceContext.assert_not_called()
+
+    def test_pmd_cpu_mask_epa_not_isolated(self):
+        # Without enough isolated CPUs the PMD threads still get CPUs
+        # through EPA, so none that Ceph holds, from the general pool.
+        self.patch_epa_pmd(allocate={1: '124-127'}, isolated='72-74')
+        self.assertEqual(self.target.pmd_cpu_mask(),
+                         ovn_charm.cpu_list_to_mask('124-127'))
+        self.allocate_numa_cores.assert_has_calls([
+            mock.call('ovs-vswitchd-pmd', 0, -1, pool='isolated'),
+            mock.call('ovs-vswitchd-pmd', 1, -1, pool='isolated'),
+            mock.call('ovs-vswitchd-pmd', 0, -1, pool='general'),
+            mock.call('ovs-vswitchd-pmd', 1, 4, pool='general'),
+        ])
+        self.set_flag.assert_called_once_with(
+            'charm.ovn.epa-pmd-cores-held.general')
+
+    def test_pmd_cpu_mask_epa_once_per_hook(self):
+        # The mask is needed both for pmd-cpu-mask and n_rxq.
+        self.patch_epa_pmd(allocate={1: '72-75'})
+        self.target.pmd_cpu_mask()
+        calls = self.allocate_numa_cores.call_count
+        self.target.pmd_cpu_mask()
+        self.assertEqual(self.allocate_numa_cores.call_count, calls)
+
+    def test_pmd_cpu_mask_epa_unavailable_cpus(self):
+        # Falling back to pmd-cpu-set could put PMD threads on CPUs EPA
+        # gave to Ceph, so leave the choice to Open vSwitch instead.
+        self.patch_epa_pmd()
+
+        def _allocate(service_name, numa_node, num_of_cores, pool):
+            if num_of_cores > 0:
+                raise ovn_charm.epa_client.EPAError('out of CPUs')
+            return ''
+
+        self.allocate_numa_cores.side_effect = _allocate
+        self.assertIsNone(self.target.pmd_cpu_mask())
+        self.OVSDPDKDeviceContext.assert_not_called()
+
+    def test_pmd_cpu_mask_epa_kernel_datapath(self):
+        # Moving off a userspace datapath hands the PMD cores back.
+        self.patch_epa_pmd(datapath_types=('system',))
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=True)
+        self.assertIsNone(self.target.pmd_cpu_mask())
+        self.allocate_numa_cores.assert_has_calls([
+            mock.call('ovs-vswitchd-pmd', 0, -1, pool='general'),
+            mock.call('ovs-vswitchd-pmd', 1, -1, pool='general'),
+            mock.call('ovs-vswitchd-pmd', 0, -1, pool='isolated'),
+            mock.call('ovs-vswitchd-pmd', 1, -1, pool='isolated'),
+        ])
+        self.clear_flag.assert_has_calls([
+            mock.call('charm.ovn.epa-pmd-cores-held.general'),
+            mock.call('charm.ovn.epa-pmd-cores-held.isolated'),
+        ])
+
+    def patch_local_pmd(self, isolated, ovs_numa_nodes=(1,), pmd_cpu_set=None,
+                        pmd_cpu_cores=4):
+        """Run the ``doca`` datapath on a machine without EPA, like a DPU.
+
+        :param isolated: CPU list of the CPUs isolated with ``isolcpus``.
+        :type isolated: str
+        :param ovs_numa_nodes: NUMA nodes of the physical ports.
+        :type ovs_numa_nodes: Iterable[int]
+        :param pmd_cpu_set: Value for the ``pmd-cpu-set`` option.
+        :type pmd_cpu_set: Optional[str]
+        :param pmd_cpu_cores: Value for the ``pmd-cpu-cores`` option.
+        :type pmd_cpu_cores: int
+        """
+        self.local_config.update({'pmd-cpu-set': pmd_cpu_set,
+                                  'pmd-cpu-cores': pmd_cpu_cores})
+        self.target = ovn_charm.BaseOVNChassisCharm()
+        self.patch_sysfs()
+        self.write_isolated(isolated)
+        self.patch_target('ovs_datapath_types', return_value={'doca'})
+        self.patch_target('ovs_numa_nodes', return_value=list(ovs_numa_nodes))
+        self.patch_object(ovn_charm.os_context, 'OVSDPDKDeviceContext')
+        self.patch_object(ovn_charm.ch_core.hookenv, 'log')
+
+    def test_pmd_cpu_mask_isolated(self):
+        # Without EPA the PMD threads have the isolated CPUs to themselves.
+        self.patch_local_pmd('8-15,72-79')
+        self.assertEqual(self.target.pmd_cpu_mask(),
+                         ovn_charm.cpu_list_to_mask('72-75'))
+        self.OVSDPDKDeviceContext.assert_not_called()
+
+    def test_pmd_cpu_mask_isolated_lcore(self):
+        # DPDK runs its lcore threads on the CPUs in dpdk-lcore-mask.
+        self.local_config.update({'enable-dpdk': True})
+        self.patch_local_pmd('0-3,8-11', ovs_numa_nodes=(0,))
+        self.OVSDPDKDeviceContext.return_value.cpu_mask.return_value = '0x1'
+        self.assertEqual(self.target.pmd_cpu_mask(),
+                         ovn_charm.cpu_list_to_mask('1-3,8'))
+
+    def test_pmd_cpu_mask_isolated_numa_nodes(self):
+        self.patch_local_pmd('8-15,72-79', ovs_numa_nodes=(0, 1))
+        self.assertEqual(self.target.pmd_cpu_mask(),
+                         ovn_charm.cpu_list_to_mask('8-9,72-73'))
+
+    def test_pmd_cpu_mask_not_isolated(self):
+        # Pinned to CPUs that are not isolated still beats the CPU Open
+        # vSwitch picks itself, the first of the NUMA node, where kernel
+        # housekeeping and interrupts run.  The highest numbered ones are
+        # furthest from those.
+        self.patch_local_pmd('')
+        self.assertEqual(self.target.pmd_cpu_mask(),
+                         ovn_charm.cpu_list_to_mask('124-127'))
+
+    def test_pmd_cpu_mask_isolated_too_few(self):
+        # All or nothing, so the PMD threads are not part isolated.
+        self.patch_local_pmd('8-15,72-74', ovs_numa_nodes=(0, 1),
+                             pmd_cpu_cores=8)
+        self.assertEqual(self.target.pmd_cpu_mask(),
+                         ovn_charm.cpu_list_to_mask('60-63,124-127'))
+
+    def test_pmd_cpu_mask_too_few_cpus(self):
+        self.patch_local_pmd('', pmd_cpu_cores=65)
+        self.assertIsNone(self.target.pmd_cpu_mask())
+
+    def test_pmd_cpu_mask_pmd_cpu_set(self):
+        # Deprecated, but still honoured without EPA, for the DPDK
+        # deployments that have it set.
+        self.patch_local_pmd('8-15,72-79', pmd_cpu_set='8-11')
+        self.OVSDPDKDeviceContext.return_value.pmd_cpu_mask.return_value = (
+            '0xf00')
+        self.assertEqual(self.target.pmd_cpu_mask(), '0xf00')
+        self.assertTrue(any('deprecated' in c.args[0]
+                            for c in self.log.call_args_list))
+
+    def test_custom_assess_status_last_check_pmd_not_pinned_without_epa(
+            self):
+        self.patch_open_vswitch({})
+        self.assertEqual(
+            self.target.custom_assess_status_last_check(),
+            ('active', 'PMD threads are not pinned to the 4 CPUs in '
+                       'pmd-cpu-cores, see the unit log.'))
+
+    def patch_open_vswitch(self, other_config):
+        """Present a ``doca`` capable Open_vSwitch row."""
+        self.patch_object(ovn_charm.ch_core.host, 'service_running',
+                          return_value=True)
+        self.patch_object(ovn_charm.ch_ovsdb, 'SimpleOVSDB')
+        ovsdb = mock.MagicMock()
+        ovsdb.open_vswitch.__iter__.return_value = [{
+            'datapath_types': ['system', 'doca'],
+            'other_config': other_config,
+        }]
+        self.SimpleOVSDB.return_value = ovsdb
+
+    def test_custom_assess_status_last_check_pmd_not_pinned(self):
+        self.epa_available.return_value = True
+        self.patch_open_vswitch({})
+        self.assertEqual(
+            self.target.custom_assess_status_last_check(),
+            ('active', 'PMD threads are not pinned to the 4 CPUs in '
+                       'pmd-cpu-cores, see the unit log.'))
+
+    def test_custom_assess_status_last_check_pmd_pinned(self):
+        self.epa_available.return_value = True
+        self.patch_open_vswitch({'pmd-cpu-mask': '0xf0'})
+        self.assertEqual(self.target.custom_assess_status_last_check(),
+                         (None, None))
 
     def test_configure_ovs_doca_not_ours(self):
         # The offload provider of a host that had OVS-DOCA before the charm
@@ -1479,7 +2074,7 @@ class TestOVNChassisCharm(Helper):
         }
         mock_bpi = mock.MagicMock()
         mock_bpi.items.return_value = dict_bpi.items()
-        mock_bpi.__iter__.return_value = dict_bpi.__iter__()
+        mock_bpi.__iter__.side_effect = lambda: iter(dict_bpi)
         mock_bpi.__contains__.side_effect = dict_bpi.__contains__
         mock_bpi.__getitem__.side_effect = lambda x: dict_bpi.__getitem__(x)
         mock_bpi.get_ifdatamap.side_effect = lambda x, y: {
@@ -2094,6 +2689,8 @@ class TestDOCAOVNChassisCharm(Helper):
             'vpd-device-spec': '',
             'ovn-source': 'distro',
             'pmd-cpu-set': None,
+            'ovs-cpu-cores': 0,
+            'pmd-cpu-cores': 4,
         })
 
     def test_packages(self):
@@ -2139,6 +2736,7 @@ class TestDOCAOVNChassisCharm(Helper):
                           return_value=True)
         self.patch_target('hugepages_reserved', return_value={1048576: 16})
         self.patch_target('datapath_type_pending', return_value=False)
+        self.patch_target('applied_pmd_cpu_mask', return_value='0xf0')
         self.assertEqual(self.target.custom_assess_status_last_check(),
                          (None, None))
 
@@ -2351,7 +2949,7 @@ class TestDOCAOVNChassisCharm(Helper):
         }
         mock_bpi = mock.MagicMock()
         mock_bpi.items.return_value = dict_bpi.items()
-        mock_bpi.__iter__.return_value = dict_bpi.__iter__()
+        mock_bpi.__iter__.side_effect = lambda: iter(dict_bpi)
         mock_bpi.__contains__.side_effect = dict_bpi.__contains__
         mock_bpi.__getitem__.side_effect = lambda x: dict_bpi.__getitem__(x)
         mock_bpi.get_ifdatamap.side_effect = lambda x, y: {
@@ -2413,7 +3011,7 @@ class TestDOCAOVNChassisCharm(Helper):
         dict_bpi = {'br-data': {'bond0': {'bond0': {}}}}
         mock_bpi = mock.MagicMock()
         mock_bpi.items.return_value = dict_bpi.items()
-        mock_bpi.__iter__.return_value = dict_bpi.__iter__()
+        mock_bpi.__iter__.side_effect = lambda: iter(dict_bpi)
         mock_bpi.__contains__.side_effect = dict_bpi.__contains__
         mock_bpi.__getitem__.side_effect = lambda x: dict_bpi.__getitem__(x)
         mock_bpi.get_ifdatamap.side_effect = lambda x, y: {
@@ -2455,10 +3053,14 @@ class TestDOCAOVNChassisCharm(Helper):
 
     def test_configure_bridges_n_rxq(self):
         # One receive queue per PMD thread, so every PMD core polls the
-        # uplink.
-        self.patch_configure_bridges_bond0()
-        self.patch_target('pmd_cpu_mask', return_value='0xf00')
+        # uplink.  Taken from the mask Open vSwitch was given, which the
+        # deferred configure_ovs may not have changed yet.
+        ovsdb = self.patch_configure_bridges_bond0()
+        ovsdb.open_vswitch.__iter__.return_value = [{
+            'other_config': {'pmd-cpu-mask': '0xf00'}}]
+        self.patch_target('pmd_cpu_mask')
         self.target.configure_bridges()
+        self.pmd_cpu_mask.assert_not_called()
         self.add_bridge_port.assert_called_once_with(
             'br-data', 'bond0', ifdata={
                 'type': 'doca',
@@ -2471,7 +3073,7 @@ class TestDOCAOVNChassisCharm(Helper):
         # ``pmd-cpu-set`` unset: the interface carries no ``n_rxq`` already,
         # so there is nothing to remove.
         ovsdb = self.patch_configure_bridges_bond0()
-        self.patch_target('pmd_cpu_mask', return_value=None)
+        ovsdb.open_vswitch.__iter__.return_value = [{'other_config': {}}]
         self.target.configure_bridges()
         self.add_bridge_port.assert_called_once_with(
             'br-data', 'bond0', ifdata={
@@ -2499,6 +3101,33 @@ class TestDOCAOVNChassisCharm(Helper):
                 'external-ids': {'charm-ovn-chassis': 'br-data'}})
         ovsdb.interface.remove.assert_called_once_with(
             'bond0', 'options', 'n_rxq')
+
+    def test_configure_bridges_leaves_epa_alone(self):
+        # With restarts deferred, configure_ovs leaves the PMD threads
+        # where they are, so the CPUs held for them must stay held too.
+        self.patch_sysfs()
+        ovsdb = self.patch_configure_bridges_bond0()
+        ovsdb.open_vswitch.__iter__.return_value = [{
+            'other_config': {'pmd-cpu-mask': '0xf00'}}]
+        self.epa_available.return_value = True
+        self.patch_object(ovn_charm.epa_client, 'allocate_numa_cores')
+        self.patch_object(ovn_charm.reactive, 'is_flag_set',
+                          return_value=True)
+        self.target.configure_bridges()
+        self.allocate_numa_cores.assert_not_called()
+
+    def test_configure_bridges_after_numa_discovery(self):
+        # The CPU pinning in configure_ovs reads the bridge interface map
+        # before configure_bridges does, on the same charm instance.
+        self.patch_sysfs()
+        self.add_netdev('eth0', numa_node=1)
+        self.add_netdev('bond0', lower=('eth0',))
+        ovsdb = self.patch_configure_bridges_bond0()
+        ovsdb.open_vswitch.__iter__.return_value = [{'other_config': {}}]
+        self.assertEqual(self.target.ovs_numa_nodes(), [1])
+        self.assertEqual(self.target.ovs_numa_nodes(), [1])
+        self.target.configure_bridges()
+        self.add_bridge_port.assert_called_once()
 
     def test_configure_bridges_no_restart_when_in_sync(self):
         self.patch_target('ovs_datapath_types', return_value={'doca'})

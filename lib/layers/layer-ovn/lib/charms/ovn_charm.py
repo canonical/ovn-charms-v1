@@ -34,6 +34,7 @@ import charmhelpers.fetch as ch_fetch
 import charms_openstack.adapters
 import charms_openstack.charm
 
+import charms.epa_client as epa_client
 from charms.layer import snap
 
 
@@ -74,6 +75,26 @@ DOCA_HOST_DEB = '/tmp/doca-host.deb'
 # arrive with OVS-DOCA already installed and configured by its image, and the
 # packages and the offload provider are then not ours to manage.
 DOCA_MANAGED_FLAG = 'charm.ovn.doca-managed'
+
+# Where the kernel exposes network devices, PCI devices, NUMA nodes and
+# CPUs.
+SYSFS_NET = '/sys/class/net'
+SYSFS_PCI = '/sys/bus/pci/devices'
+SYSFS_NUMA = '/sys/devices/system/node'
+SYSFS_CPU = '/sys/devices/system/cpu'
+
+# systemd drop-in pinning ``ovs-vswitchd`` to the CPUs the EPA orchestrator
+# holds for it.
+OVS_VSWITCHD_CPU_AFFINITY_DROP_IN = (
+    '/etc/systemd/system/ovs-vswitchd.service.d/charm-cpu-affinity.conf')
+
+# Names the CPUs of ``ovs-vswitchd`` and of its PMD threads are held under
+# in the EPA orchestrator, and the flags set while it may hold some.
+EPA_SERVICE_NAME = 'ovs-vswitchd'
+EPA_CORES_HELD_FLAG = 'charm.ovn.epa-cores-held'
+EPA_PMD_SERVICE_NAME = 'ovs-vswitchd-pmd'
+# The PMD threads can hold CPUs in either pool, so there is one per pool.
+EPA_PMD_CORES_HELD_FLAG = 'charm.ovn.epa-pmd-cores-held.{}'
 
 _DEFERABLE_SVC_LIST = ['openvswitch-switch', 'ovn-controller', 'ovn-host',
                        'ovs-vswitchd', 'ovsdb-server', 'ovs-record-hostname']
@@ -150,6 +171,152 @@ def ifdata_for_rxq(ifdata, n_rxq):
         **ifdata,
         'options': {**ifdata.get('options', {}), 'n_rxq': n_rxq},
     }
+
+
+def _read_numa_node(path):
+    """Read a ``numa_node`` sysfs attribute.
+
+    :param path: Path to the attribute.
+    :type path: str
+    :returns: The NUMA node, or nothing when there is none.
+    :rtype: Set[int]
+    """
+    try:
+        with open(path) as f:
+            numa_node = int(f.read())
+    except (OSError, ValueError):
+        return set()
+    # The kernel reports -1 for a device not attached to a NUMA node.
+    return {numa_node} if numa_node >= 0 else set()
+
+
+def interface_numa_nodes(ifname, ifdata):
+    """NUMA nodes of the devices behind an Open vSwitch interface.
+
+    :param ifname: Interface name
+    :type ifname: str
+    :param ifdata: Interface data as resolved by ``BridgePortInterfaceMap``
+    :type ifdata: Dict[str,any]
+    :returns: NUMA nodes
+    :rtype: Set[int]
+    """
+    pci_address = ifdata.get('options', {}).get('dpdk-devargs')
+    if pci_address:
+        # A port bound to a DPDK driver has no network device left.
+        return _read_numa_node(
+            os.path.join(SYSFS_PCI, pci_address, 'numa_node'))
+    netdev = os.path.join(SYSFS_NET, ifname)
+    numa_nodes = _read_numa_node(os.path.join(netdev, 'device', 'numa_node'))
+    # A bond or VLAN has no device of its own, the devices it is stacked on
+    # do.
+    for lower in glob.glob(os.path.join(netdev, 'lower_*')):
+        numa_nodes |= interface_numa_nodes(
+            os.path.basename(lower)[len('lower_'):], {})
+    return numa_nodes
+
+
+def parse_cpu_list(cpu_list):
+    """Parse a CPU list as the kernel and the EPA orchestrator format them.
+
+    :param cpu_list: CPU list, for example ``8-11,72-75``
+    :type cpu_list: str
+    :rtype: Set[int]
+    """
+    cpus = set()
+    for cpu_range in cpu_list.strip().split(','):
+        if cpu_range:
+            first, _, last = cpu_range.partition('-')
+            cpus.update(range(int(first), int(last or first) + 1))
+    return cpus
+
+
+def parse_cpu_mask(mask):
+    """Parse a hex CPU mask as Open vSwitch takes them.
+
+    :param mask: CPU mask, for example ``0xf00``
+    :type mask: str
+    :rtype: Set[int]
+    """
+    mask = int(mask, 16)
+    return {cpu for cpu in range(mask.bit_length()) if mask >> cpu & 1}
+
+
+def cpu_list_to_mask(cpu_list):
+    """Convert a CPU list to the hex CPU mask Open vSwitch takes.
+
+    :param cpu_list: CPU list, for example ``8-11,72-75``
+    :type cpu_list: str
+    :rtype: str
+    """
+    return hex(sum(1 << cpu for cpu in parse_cpu_list(cpu_list)))
+
+
+def read_cpu_list(path):
+    """Read a CPU list sysfs attribute.
+
+    :param path: Path to the attribute.
+    :type path: str
+    :returns: The CPUs, or none when there is no such attribute.
+    :rtype: Set[int]
+    """
+    try:
+        with open(path) as f:
+            return parse_cpu_list(f.read())
+    except OSError:
+        return set()
+
+
+def numa_node_cpus(numa_node):
+    """CPUs of a NUMA node.
+
+    :param numa_node: NUMA node
+    :type numa_node: int
+    :rtype: Set[int]
+    """
+    return read_cpu_list(
+        os.path.join(SYSFS_NUMA, 'node{}'.format(numa_node), 'cpulist'))
+
+
+def isolated_cpus():
+    """CPUs isolated with the ``isolcpus`` kernel parameter.
+
+    The EPA orchestrator builds its isolated pool from the same.
+
+    :rtype: Set[int]
+    """
+    return read_cpu_list(os.path.join(SYSFS_CPU, 'isolated'))
+
+
+def share_cores(cores, numa_nodes):
+    """Share a number of CPUs evenly between NUMA nodes.
+
+    :param cores: Number of CPUs
+    :type cores: int
+    :param numa_nodes: NUMA nodes
+    :type numa_nodes: List[int]
+    :returns: Number of CPUs per NUMA node
+    :rtype: Dict[int,int]
+    """
+    return {numa_node: (cores // len(numa_nodes) +
+                        (1 if idx < cores % len(numa_nodes) else 0))
+            for idx, numa_node in enumerate(numa_nodes)}
+
+
+def host_numa_nodes():
+    """NUMA nodes of this host with CPUs on them.
+
+    Nodes without CPUs, such as those of CXL memory expanders, are left out,
+    as the EPA orchestrator does not know of them.
+
+    :rtype: List[int]
+    """
+    numa_nodes = []
+    for cpulist in glob.glob(os.path.join(SYSFS_NUMA, 'node*', 'cpulist')):
+        name = os.path.basename(os.path.dirname(cpulist))
+        with open(cpulist) as f:
+            if re.match(r'node\d+$', name) and f.read().strip():
+                numa_nodes.append(int(name[len('node'):]))
+    return sorted(numa_nodes)
 
 
 class DeferredEventMixin():
@@ -308,7 +475,6 @@ class OVNConfigurationAdapter(
             self._dpdk_device = self.OSContextObjectView(
                 os_context.DPDKDeviceContext(
                     bridges_key=self.charm_instance.bridges_key)())
-            self._ovs_dpdk_cpu_overlap_check()
         if (ch_core.hookenv.config('enable-hardware-offload') or
                 ch_core.hookenv.config('enable-sriov')):
             self._sriov_device = os_context.SRIOVContext()
@@ -361,11 +527,10 @@ class OVNConfigurationAdapter(
 
     @property
     def bridge_interface_map(self):
-        if not self._bridge_interface_map:
+        if self._bridge_interface_map is None:
             try:
                 self._bridge_interface_map = os_context.BridgePortInterfaceMap(
                     bridges_key=self.charm_instance.bridges_key)
-                return self._bridge_interface_map
             except ValueError:
                 self._validation_errors[self.charm_instance.bridges_key] = (
                     'Wrong format for bridge-interface-mappings. '
@@ -373,6 +538,7 @@ class OVNConfigurationAdapter(
                     'key-value pairs. Ex: "br-internet:00:00:5e:00:00:42 '
                     'br-provider:enp3s0f0"')
                 return None
+        return self._bridge_interface_map
 
     @property
     def card_serial_number(self):
@@ -447,20 +613,6 @@ class OVNConfigurationAdapter(
             # other specs just in case by iterating further.
         # Tried all the specs - but haven't found a serial number.
         return None
-
-    def _ovs_dpdk_cpu_overlap_check(self):
-        """Check for overlap between dpdk-lcore-mask and pmd-cpu-mask."""
-        dpdk_context = os_context.OVSDPDKDeviceContext(
-            bridges_key=self.charm_instance.bridges_key)
-        if not (int(dpdk_context.pmd_cpu_mask(), 16) &
-                int(dpdk_context.cpu_mask(), 16)):
-            return
-
-        ch_core.hookenv.log('Overlap detected between dpdk-lcore-mask '
-                            'and pmd-cpu-mask.',
-                            level=ch_core.hookenv.WARNING)
-        self._validation_errors['pmd-cpu-mask'] = (
-            'Fix overlap between dpdk-lcore-mask and pmd-cpu-mask.')
 
     @property
     def _ovn_source(self):
@@ -734,6 +886,8 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
     def __init__(self, **kwargs):
         """Allow augmenting behaviour on external factors."""
         super().__init__(**kwargs)
+        # The PMD cores held with EPA, once asked for in this hook.
+        self._epa_pmd_cpus = None
         if (self.enable_openstack and self.options.enable_sriov
                 and 'amqp' not in self.required_relations):
             self.required_relations.append('amqp')
@@ -1010,8 +1164,11 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
                     'install the DOCA host repository package on this unit.'
                     .format(DOCA_METAPACKAGE))
 
+        # The PMD threads are not necessarily on pmd-cpu-set, so check what
+        # Open vSwitch was given.  That takes a database to talk to.
         if (self.options.enable_dpdk and
-                self.options._ovs_dpdk_cpu_overlap_check()):
+                ch_core.host.service_running('ovsdb-server') and
+                self.dpdk_cpu_masks_overlap()):
             ch_core.hookenv.log('Overlap detected between dpdk-lcore-mask '
                                 'and pmd-cpu-mask.',
                                 level=ch_core.hookenv.WARNING)
@@ -1040,6 +1197,26 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
                         'Open vSwitch is not on the "{}" datapath yet, '
                         'resume the unit to apply the change.'
                         .format(DATAPATH_TYPE_DOCA))
+
+        if (self.options.ovs_cpu_cores and
+                epa_client.is_available() and
+                not os.path.exists(OVS_VSWITCHD_CPU_AFFINITY_DROP_IN)):
+            # Pinning is best effort, so the unit keeps working, but says
+            # so.  The reason is in the log of the hook that tried.
+            return ('active',
+                    'ovs-vswitchd is not pinned to the {} CPUs in '
+                    'ovs-cpu-cores, see the unit log.'
+                    .format(self.options.ovs_cpu_cores))
+
+        # Probing the datapath types requires a database to talk to.
+        if (self.options.pmd_cpu_cores and
+                ch_core.host.service_running('ovsdb-server') and
+                self.datapath_type != DATAPATH_TYPE_SYSTEM and
+                self.applied_pmd_cpu_mask() is None):
+            return ('active',
+                    'PMD threads are not pinned to the {} CPUs in '
+                    'pmd-cpu-cores, see the unit log.'
+                    .format(self.options.pmd_cpu_cores))
 
         return None, None
 
@@ -1306,10 +1483,15 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         """
         dpdk_context = os_context.OVSDPDKDeviceContext(
             bridges_key=self.bridges_key)
+        # Open vSwitch only puts its main thread back on the CPUs it was
+        # started on after DPDK moved it to the main lcore when it picked
+        # the lcore itself, from those CPUs, so a pinned ovs-vswitchd must
+        # not be given one.
+        pinned = os.path.exists(OVS_VSWITCHD_CPU_AFFINITY_DROP_IN)
         return self._reconcile_open_vswitch('other_config', (
             ('dpdk-lcore-mask',
              dpdk_context.cpu_mask()
-             if self.options.enable_dpdk else None),
+             if self.options.enable_dpdk and not pinned else None),
             ('dpdk-socket-mem',
              dpdk_context.socket_memory()
              if self.options.enable_dpdk else None),
@@ -1328,14 +1510,67 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         Both the ``netdev`` datapath used by DPDK and the ``doca`` one poll
         their ports from PMD threads, which the kernel datapath has none of.
 
+        On a machine with the EPA orchestrator, the PMD threads share the
+        host with other services pinned through it, such as Ceph OSDs, so
+        their CPUs are held with EPA.  On one without, such as a DPU, the PMD
+        threads have the isolated CPUs to themselves.  Either way there are
+        ``pmd-cpu-cores`` of them.
+
+        The deprecated ``pmd-cpu-set`` still says which CPUs to use on a
+        machine without EPA, for the deployments that have it set, but is
+        not used on one with, where it would bypass EPA.
+
         :returns: Hex formatted CPU mask, or None to use the OVS default
         :rtype: Optional[str]
         """
-        if (not self.options.pmd_cpu_set or
-                self.datapath_type == DATAPATH_TYPE_SYSTEM):
+        if epa_client.is_available():
+            if self.options.pmd_cpu_set:
+                ch_core.hookenv.log(
+                    'pmd-cpu-set is deprecated and not used on machines with '
+                    'the EPA orchestrator, use pmd-cpu-cores instead.',
+                    level=ch_core.hookenv.WARNING)
+            cpus = self.epa_pmd_cpus()
+        elif self.datapath_type == DATAPATH_TYPE_SYSTEM:
             return None
-        return os_context.OVSDPDKDeviceContext(
-            bridges_key=self.bridges_key).pmd_cpu_mask()
+        elif self.options.pmd_cpu_set:
+            ch_core.hookenv.log(
+                'pmd-cpu-set is deprecated, use pmd-cpu-cores instead.',
+                level=ch_core.hookenv.WARNING)
+            return os_context.OVSDPDKDeviceContext(
+                bridges_key=self.bridges_key).pmd_cpu_mask()
+        else:
+            cpus = self.local_pmd_cpus()
+        return cpu_list_to_mask(cpus) if cpus else None
+
+    def applied_other_config(self):
+        """The ``other_config`` column of the Open_vSwitch table.
+
+        :rtype: Dict[str,str]
+        """
+        for row in ch_ovsdb.SimpleOVSDB('ovs-vsctl').open_vswitch:
+            return row.get('other_config', {})
+        return {}
+
+    def dpdk_cpu_masks_overlap(self):
+        """Whether DPDK lcore and PMD threads were given the same CPUs.
+
+        :rtype: bool
+        """
+        other_config = self.applied_other_config()
+        return bool(int(other_config.get('dpdk-lcore-mask', '0'), 16) &
+                    int(other_config.get('pmd-cpu-mask', '0'), 16))
+
+    def applied_pmd_cpu_mask(self):
+        """The CPU mask Open vSwitch was given for its PMD threads.
+
+        Read back rather than worked out, as working it out changes what
+        EPA holds, which only configure_ovs may do: it is deferred with the
+        restart that applies it when automatic restarts are disabled.
+
+        :returns: Hex formatted CPU mask, or None for the OVS default
+        :rtype: Optional[str]
+        """
+        return self.applied_other_config().get('pmd-cpu-mask')
 
     def configure_ovs_hw_offload(self):
         """Configure hardware offload specific bits in Open vSwitch.
@@ -1379,6 +1614,243 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
             # the two to run.
             reactive.clear_flag(DOCA_MANAGED_FLAG)
         return something_changed
+
+    def ovs_numa_nodes(self):
+        """NUMA nodes of the ports in ``bridge-interface-mappings``.
+
+        Only nodes with CPUs on them are returned, as the CPUs Open vSwitch
+        is pinned to are shared between these, so a port on a node without,
+        such as one only holding CXL memory, has its share taken from the
+        others.
+
+        :returns: NUMA nodes, node 0 when none can be told
+        :rtype: List[int]
+        """
+        numa_nodes = set()
+        bim = self.options.bridge_interface_map or {}
+        for br in bim:
+            for port in bim[br]:
+                for ifname, ifdata in bim.get_ifdatamap(br, port).items():
+                    numa_nodes |= interface_numa_nodes(ifname, ifdata)
+        without_cpus = numa_nodes - set(host_numa_nodes())
+        if without_cpus:
+            ch_core.hookenv.log(
+                'Ports are on NUMA nodes without CPUs: {}, pinning Open '
+                'vSwitch to CPUs of the other NUMA nodes.'
+                .format(', '.join(str(n) for n in sorted(without_cpus))),
+                level=ch_core.hookenv.WARNING)
+        return sorted(numa_nodes - without_cpus) or [0]
+
+    def release_epa_cpus(self, service_name, held_flag, pool):
+        """Hand the CPUs held for a service back to EPA.
+
+        :param service_name: Name the CPUs are held under.
+        :type service_name: str
+        :param held_flag: Flag set while CPUs may be held.
+        :type held_flag: str
+        :param pool: CPU pool the CPUs were taken from.
+        :type pool: str
+        :raises: epa_client.EPAError
+        """
+        for numa_node in host_numa_nodes():
+            epa_client.allocate_numa_cores(service_name, numa_node, -1,
+                                           pool=pool)
+        reactive.clear_flag(held_flag)
+
+    def hold_epa_cpus(self, service_name, held_flag, cores, pool):
+        """Hold CPUs for a service with EPA.
+
+        Asking the EPA orchestrator rather than taking a CPU list from the
+        operator keeps Open vSwitch off CPUs other services on the host are
+        pinned to through it.  The CPUs are taken from the NUMA nodes of the
+        physical ports, shared evenly between them when the ports are on
+        more than one.
+
+        :param service_name: Name the CPUs are held under.
+        :type service_name: str
+        :param held_flag: Flag set while CPUs may be held.
+        :type held_flag: str
+        :param cores: Number of CPUs, or 0 to release them.
+        :type cores: int
+        :param pool: CPU pool to take the CPUs from.
+        :type pool: str
+        :returns: CPU list, or None when none are held
+        :rtype: Optional[str]
+        """
+        if not cores:
+            if reactive.is_flag_set(held_flag):
+                try:
+                    self.release_epa_cpus(service_name, held_flag, pool)
+                except epa_client.EPAError as e:
+                    # The flag stays set, so it is tried again next hook.
+                    ch_core.hookenv.log(
+                        'Unable to release CPUs: {}'.format(e),
+                        level=ch_core.hookenv.WARNING)
+            return None
+        shares = share_cores(cores, self.ovs_numa_nodes())
+        # Set up front so that CPUs held by a hook that fails part way are
+        # handed back later.
+        reactive.set_flag(held_flag)
+        cpus = []
+        try:
+            for numa_node in host_numa_nodes():
+                cpus.append(epa_client.allocate_numa_cores(
+                    service_name, numa_node, shares.get(numa_node) or -1,
+                    pool=pool))
+        except epa_client.EPAError as e:
+            ch_core.hookenv.log('Not pinning {}: {}'.format(service_name, e),
+                                level=ch_core.hookenv.WARNING)
+            try:
+                self.release_epa_cpus(service_name, held_flag, pool)
+            except epa_client.EPAError as e:
+                ch_core.hookenv.log('Unable to release CPUs: {}'.format(e),
+                                    level=ch_core.hookenv.WARNING)
+            return None
+        return ','.join(cpu_list for cpu_list in cpus if cpu_list)
+
+    def pmd_shares(self):
+        """Number of CPUs for the PMD threads per NUMA node.
+
+        :rtype: Dict[int,int]
+        """
+        cores = (self.options.pmd_cpu_cores
+                 if self.datapath_type != DATAPATH_TYPE_SYSTEM else 0)
+        return share_cores(cores, self.ovs_numa_nodes())
+
+    def pmd_cpus_isolated(self, shares, reserved=frozenset()):
+        """Whether the PMD threads can have CPUs isolated with ``isolcpus``.
+
+        PMD threads poll in a busy loop and want CPUs the kernel scheduler
+        leaves alone, but pinning them to CPUs that are not isolated still
+        beats leaving the choice to Open vSwitch, which takes the first CPU
+        of a NUMA node, where kernel housekeeping and interrupts run.  It is
+        all or nothing, so they are never part isolated.
+
+        :param shares: Number of CPUs per NUMA node
+        :type shares: Dict[int,int]
+        :param reserved: CPUs not to count.
+        :type reserved: Set[int]
+        :rtype: bool
+        """
+        isolated = isolated_cpus() - reserved
+        if all(len(isolated & numa_node_cpus(numa_node)) >= share
+               for numa_node, share in shares.items()):
+            return True
+        ch_core.hookenv.log(
+            'Not enough CPUs isolated with isolcpus, pinning PMD threads to '
+            'CPUs the kernel scheduler also runs other tasks on.',
+            level=ch_core.hookenv.WARNING)
+        return False
+
+    def epa_pmd_cpus(self):
+        """Hold the CPUs of the PMD threads with EPA.
+
+        They come from the isolated pool when there are enough isolated CPUs,
+        and from the general one otherwise, where they are still CPUs no
+        other service holds.  They are only asked for once per hook, and
+        handed back on the kernel datapath, which has no PMD threads.
+
+        :returns: CPU list, or None when none are held
+        :rtype: Optional[str]
+        """
+        if self._epa_pmd_cpus is None:
+            shares = self.pmd_shares()
+            cores = sum(shares.values())
+            pool, other_pool = (
+                (epa_client.EPA_POOL_ISOLATED, epa_client.EPA_POOL_GENERAL)
+                if self.pmd_cpus_isolated(shares) else
+                (epa_client.EPA_POOL_GENERAL, epa_client.EPA_POOL_ISOLATED))
+            # EPA refuses any request from an owner holding CPUs in the
+            # other pool, so those go back first.
+            self.hold_epa_cpus(
+                EPA_PMD_SERVICE_NAME,
+                EPA_PMD_CORES_HELD_FLAG.format(other_pool), 0, other_pool)
+            self._epa_pmd_cpus = self.hold_epa_cpus(
+                EPA_PMD_SERVICE_NAME, EPA_PMD_CORES_HELD_FLAG.format(pool),
+                cores, pool) or ''
+        return self._epa_pmd_cpus or None
+
+    def local_pmd_cpus(self):
+        """Pick the CPUs of the PMD threads on a machine without EPA.
+
+        On such machines, such as DPUs, the PMD threads have the CPUs to
+        themselves.  They are taken from the NUMA nodes of the physical
+        ports, shared evenly between them, as EPA would: the lowest numbered
+        isolated CPUs when there are enough, and the highest numbered CPUs,
+        furthest from kernel housekeeping and interrupts, otherwise.
+
+        :returns: CPU list, or None when there are not enough
+        :rtype: Optional[str]
+        """
+        shares = self.pmd_shares()
+        # DPDK runs its lcore threads on the CPUs in dpdk-lcore-mask, which
+        # a pinned ovs-vswitchd, only ever under EPA, does without.
+        lcores = set()
+        if self.options.enable_dpdk:
+            lcores = parse_cpu_mask(os_context.OVSDPDKDeviceContext(
+                bridges_key=self.bridges_key).cpu_mask())
+        isolated = (self.pmd_cpus_isolated(shares, lcores) and
+                    isolated_cpus())
+        cpus = []
+        for numa_node, share in shares.items():
+            if not share:
+                continue
+            candidates = sorted(numa_node_cpus(numa_node) - lcores)
+            if isolated:
+                cpus.extend(sorted(isolated.intersection(candidates))[:share])
+                continue
+            if len(candidates) < share:
+                ch_core.hookenv.log(
+                    'Not pinning PMD threads: NUMA node {} has {} CPUs, {} '
+                    'are needed.'.format(numa_node, len(candidates), share),
+                    level=ch_core.hookenv.WARNING)
+                return None
+            cpus.extend(candidates[-share:])
+        return ','.join(str(cpu) for cpu in sorted(cpus)) or None
+
+    def allocate_ovs_cpus(self):
+        """Hold the CPUs ``ovs-vswitchd`` is pinned to with EPA.
+
+        They come from the general pool, as the threads of ``ovs-vswitchd``
+        need CPUs the kernel balances load across.
+
+        :returns: CPU list, or None to not pin ``ovs-vswitchd``
+        :rtype: Optional[str]
+        """
+        if not epa_client.is_available():
+            return None
+        return self.hold_epa_cpus(EPA_SERVICE_NAME, EPA_CORES_HELD_FLAG,
+                                  self.options.ovs_cpu_cores,
+                                  epa_client.EPA_POOL_GENERAL)
+
+    def configure_ovs_cpu_affinity(self):
+        """Pin ``ovs-vswitchd`` to the CPUs EPA holds for it.
+
+        systemd applies ``CPUAffinity`` when it starts the service, so a
+        change only takes effect once ``ovs-vswitchd`` is restarted.
+
+        :returns: Whether something changed
+        :rtype: bool
+        """
+        cpus = self.allocate_ovs_cpus()
+        drop_in = OVS_VSWITCHD_CPU_AFFINITY_DROP_IN
+        if cpus:
+            content = '[Service]\nCPUAffinity={}\n'.format(cpus)
+            try:
+                with open(drop_in) as f:
+                    if f.read() == content:
+                        return False
+            except FileNotFoundError:
+                pass
+            os.makedirs(os.path.dirname(drop_in), exist_ok=True)
+            with open(drop_in, 'w') as f:
+                f.write(content)
+        elif os.path.exists(drop_in):
+            os.remove(drop_in)
+        else:
+            return False
+        self.run('systemctl', 'daemon-reload')
+        return True
 
     def configure_ovs_datapath(self):
         """Configure the datapath type defaults in Open vSwitch.
@@ -1493,7 +1965,9 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
                          '--', 'add', 'Open_vSwitch', '.', 'manager_options',
                          '@manager')
 
+        # The CPU affinity goes first, as it decides the DPDK lcore mask.
         restart_required = (
+            self.configure_ovs_cpu_affinity() |
             self.configure_ovs_hw_offload() | self.configure_ovs_dpdk())
         if restart_required:
             ch_core.host.service_restart('openvswitch-switch')
@@ -1636,7 +2110,7 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
         datapath_type = self.datapath_type
         # One receive queue per PMD thread, so that every PMD core polls the
         # physical ports.
-        pmd_cpu_mask = self.pmd_cpu_mask()
+        pmd_cpu_mask = self.applied_pmd_cpu_mask()
         n_rxq = (str(bin(int(pmd_cpu_mask, 16)).count('1'))
                  if pmd_cpu_mask else None)
         restart_required = False
