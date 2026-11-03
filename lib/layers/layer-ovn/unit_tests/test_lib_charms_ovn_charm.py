@@ -3155,21 +3155,23 @@ class TestDOCAOVNChassisCharm(Helper):
         self.patch_target('run')
         self.patch_target('update_api_ports')
 
-    def test_install_stops_ovn_controller_on_transition(self):
-        # The DOCA packages replace the ones providing Open vSwitch, which
-        # ovn-controller must not reconcile against while it happens.
+    def test_install_does_not_stop_ovn_controller_on_transition(self):
+        # The DOCA packages replace the ones providing Open vSwitch, but
+        # ovn-controller does not need to be stopped around it: the swap
+        # stops the Open vSwitch daemons itself, and ovn-controller simply
+        # reconnects once they are back (OVN-834).
         self.patch_object(ovn_charm.reactive, 'is_flag_set',
                           return_value=True)
         self.patch_object(ovn_charm.ch_fetch, 'filter_installed_packages',
                           return_value=['doca-networking'])
         self.patch_install()
         self.target.install()
-        self.service_stop.assert_called_once_with('ovn-controller')
-        self.service_start.assert_called_once_with('ovn-controller')
+        self.service_stop.assert_not_called()
+        self.service_start.assert_not_called()
 
     def test_install_leaves_installed_packages_alone(self):
-        # Nothing is replaced underneath ovn-controller when the packages
-        # are already in place.
+        # No packages are ever removed or stopped underneath ovn-controller
+        # when they are already in place.
         self.patch_object(ovn_charm.reactive, 'is_flag_set',
                           return_value=True)
         self.patch_object(ovn_charm.ch_fetch, 'filter_installed_packages',
