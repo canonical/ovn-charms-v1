@@ -1,0 +1,43 @@
+includes:
+  - layer:openstack
+  - layer:leadership
+  - layer:snap
+  - interface:ovsdb
+  - interface:rabbitmq
+  - interface:nrpe-external-master
+  - interface:prometheus-scrape
+  - interface:cos-agent
+exclude: 
+  - .gitignore
+  - .stestr.conf
+  - .travis.yml
+  - README.md
+  - requirements.txt
+  - test-requirements.txt
+  - tests
+  - tox.ini
+  - unit_tests
+options:
+  basic:
+    use_venv: true
+    include_system_packages: false
+  snap:
+    prometheus-ovs-exporter:
+      connect:
+        - ['prometheus-ovs-exporter:kernel-module-observe', ':kernel-module-observe']
+        - ['prometheus-ovs-exporter:netlink-audit', ':netlink-audit']
+        - ['prometheus-ovs-exporter:log-observe', ':log-observe']
+        - ['prometheus-ovs-exporter:network-observe', ':network-observe']
+        - ['prometheus-ovs-exporter:openvswitch', ':openvswitch']
+        - ['prometheus-ovs-exporter:system-observe', ':system-observe']
+        - ['prometheus-ovs-exporter:etc-openvswitch', ':system-files']
+        - ['prometheus-ovs-exporter:run-openvswitch', ':system-files']
+repo: https://github.com/openstack-charmers/charm-layer-ovn
+config:
+  deletes:
+    - ssl_ca
+    - ssl_cert
+    - ssl_key
+    - use-internal-endpoints
+    - use-syslog
+    - verbose

@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        charm: [central, chassis, dedicated-chassis]
+        charm: [central, chassis, dedicated-chassis, layer-ovn]
         python-version: ["3.10", "3.12"]
     steps:
       - name: Checkout code
@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        charm: [central, chassis, dedicated-chassis]
+        charm: [central, chassis, dedicated-chassis, layer-ovn]
         python-version: ["3.10", "3.12"]
     steps:
       - name: Checkout code
@@ -102,7 +102,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt install -y tox
-          sudo snap install charmcraft --channel 3.x/stable --classic
+          sudo snap install charmcraft --channel latest/edge --classic
           sudo snap install lxd --channel 5.21/stable
           sudo snap set lxd daemon.group=adm
           sudo lxd init --auto
@@ -119,7 +119,7 @@ jobs:
         working-directory: ./ovn-${{ matrix.charm }}
         run: |
           ARCH=$(dpkg-architecture -q DEB_HOST_ARCH)
-          charmcraft -v pack --platform ${{ matrix.platform }}:$ARCH
+          CHARMCRAFT_EXPERIMENTAL_MONOREPO=1 charmcraft -v pack --platform ${{ matrix.platform }}:$ARCH
 
       - name: Store charm as artifact
         uses: actions/upload-artifact@v5
