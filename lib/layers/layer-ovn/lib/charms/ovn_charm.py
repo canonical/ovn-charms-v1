@@ -927,7 +927,7 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
                     [DOCA_HOST_PACKAGE])):
             # The archive this unit is configured for is already in place.
             return
-        self.run('wget', '-O', DOCA_HOST_DEB, self.options.doca_url)
+        self.run('wget', '-nv', '-O', DOCA_HOST_DEB, self.options.doca_url)
         self.run('dpkg', '-i', DOCA_HOST_DEB)
         ch_fetch.apt_update(fatal=True)
         self._doca_source_configured = True

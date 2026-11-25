@@ -2832,7 +2832,7 @@ class TestDOCAOVNChassisCharm(Helper):
         self.patch_target('run')
         self.target.configure_doca_source()
         self.run.assert_has_calls([
-            mock.call('wget', '-O', '/tmp/doca-host.deb',
+            mock.call('wget', '-nv', '-O', '/tmp/doca-host.deb',
                       'https://example.com/doca-host.deb'),
             mock.call('dpkg', '-i', '/tmp/doca-host.deb'),
         ])
