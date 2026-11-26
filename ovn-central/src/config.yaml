@@ -70,6 +70,17 @@ options:
 
       The Open vSwitch ovsdb-server default of 5 seconds may not be sufficient
       depending on type and load of the CMS you want to connect to OVN.
+  enable-common-zone:
+    type: boolean
+    default: True
+    description: |
+      Configure OVN Northbound to use a common conntrack zone for both SNAT
+      and DNAT (``NB_Global.options:use_common_zone``).
+
+      A common zone is required for hardware-accelerated (offloaded) NAT, so
+      this defaults to True.  Disable it to restore the upstream two-zone
+      default where the distributed gateway port is combined with load
+      balancing and SNAT in a way that is not offloadable.
   nagios_context:
     default: "juju"
     type: string
