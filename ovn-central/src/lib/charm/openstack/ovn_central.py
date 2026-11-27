@@ -711,6 +711,20 @@ class BaseOVNCentralCharm(charms_openstack.charm.OpenStackCharm):
                 cur_timer = change_timer
                 status = self.cluster_status(ovn_db)
 
+    def configure_common_zone(self):
+        """Configure the Northbound common conntrack zone option.
+
+        Set the ``NB_Global`` option ``use_common_zone`` according to the
+        ``enable-common-zone`` configuration option.  This is a cluster-wide
+        setting so it must only be applied by the Northbound DB leader.
+        """
+        status = self.cluster_status('ovnnb_db')
+        if not (status and status.is_cluster_leader):
+            return
+        value = 'true' if self.config['enable-common-zone'] else 'false'
+        self.run('ovn-nbctl', '--', 'set', 'NB_Global', '.',
+                 'options:use_common_zone={}'.format(value))
+
     def configure_ovn(self, nb_port, sb_port, sb_admin_port):
         """Create or update OVN listener configuration.
 
@@ -747,6 +761,8 @@ class BaseOVNCentralCharm(charms_openstack.charm.OpenStackCharm):
         election_timer = self.config['ovsdb-server-election-timer']
         self.configure_ovsdb_election_timer('nb', election_timer)
         self.configure_ovsdb_election_timer('sb', election_timer)
+
+        self.configure_common_zone()
 
     @staticmethod
     def initialize_firewall():
