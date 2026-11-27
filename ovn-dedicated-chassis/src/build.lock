@@ -339,7 +339,7 @@
       "package": "certifi",
       "type": "python_module",
       "vcs": null,
-      "version": "2026.6.17"
+      "version": "2026.10.18"
     },
     {
       "package": "h11",
