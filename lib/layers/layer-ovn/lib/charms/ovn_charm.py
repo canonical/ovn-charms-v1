@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import collections
-import contextlib
 import glob
 import ipaddress
 import json
@@ -928,7 +927,7 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
                     [DOCA_HOST_PACKAGE])):
             # The archive this unit is configured for is already in place.
             return
-        self.run('wget', '-O', DOCA_HOST_DEB, self.options.doca_url)
+        self.run('wget', '-nv', '-O', DOCA_HOST_DEB, self.options.doca_url)
         self.run('dpkg', '-i', DOCA_HOST_DEB)
         ch_fetch.apt_update(fatal=True)
         self._doca_source_configured = True
@@ -988,40 +987,19 @@ class BaseOVNChassisCharm(charms_openstack.charm.OpenStackCharm):
             return not installed
         return installed and reactive.is_flag_set(DOCA_MANAGED_FLAG)
 
-    @contextlib.contextmanager
-    def ovn_controller_stopped(self):
-        """Run the wrapped block with ``ovn-controller`` stopped.
-
-        A running ``ovn-controller`` would keep reconciling the Open vSwitch
-        database against daemons that are being replaced underneath it.  On
-        the way down it withdraws its port bindings, chassis record and
-        tunnel ports.
-
-        It does not withdraw the patch ports linking the integration bridge
-        to the physical bridges, as those are only garbage collected while
-        the daemon runs.  They are left behind attached to the datapath the
-        bridges had before the change and can need removing by hand, which
-        is the main reason to keep this window as short as possible.  Should
-        that get resolved further down the stack, this method can go away.
-
-        :returns: Context manager
-        """
-        ch_core.host.service_stop('ovn-controller')
-        try:
-            yield
-        finally:
-            ch_core.host.service_start('ovn-controller')
-
     def install(self):
         """Extend the default install method."""
         self.configure_sources()
+        # Enabling DOCA replaces the packages that provide Open vSwitch
+        # itself.  The swap stops the Open vSwitch services and the DOCA
+        # packages' postinst does not restart them, so the charm restarts
+        # Open vSwitch again (normally in the same hook run; with auto
+        # restarts disabled, the whole install hook is deferred instead).
+        # ovn-controller is not stopped around this: it reconnects to
+        # OVSDB (and the SB) once Open vSwitch is back, recovering the
+        # integration bridge and its patch ports on its own (OVN-834).
         doca_changing = self.doca_packages_changing()
-        with contextlib.ExitStack() as stack:
-            if doca_changing:
-                # Enabling or disabling DOCA replaces the packages that
-                # provide Open vSwitch itself.
-                stack.enter_context(self.ovn_controller_stopped())
-            super().install()
+        super().install()
 
         if self.options.install_doca and doca_changing:
             # These packages are ours to remove again, unlike ones a host

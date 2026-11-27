@@ -473,11 +473,35 @@ class TestOVNCentralCharm(Helper):
                 use_ovs_appctl=False),
         ])
 
+    def test_configure_common_zone(self):
+        self.patch_target('config')
+        self.patch_target('cluster_status')
+        self.patch_target('run')
+
+        self.cluster_status.return_value = self.FakeClusterStatus(False)
+        self.config.__getitem__.return_value = True
+        self.target.configure_common_zone()
+        self.assertFalse(self.run.called)
+
+        self.cluster_status.return_value = self.FakeClusterStatus(True)
+        self.target.configure_common_zone()
+        self.run.assert_called_once_with(
+            'ovn-nbctl', '--', 'set', 'NB_Global', '.',
+            'options:use_common_zone=true')
+        self.run.reset_mock()
+
+        self.config.__getitem__.return_value = False
+        self.target.configure_common_zone()
+        self.run.assert_called_once_with(
+            'ovn-nbctl', '--', 'set', 'NB_Global', '.',
+            'options:use_common_zone=false')
+
     def test_configure_ovn(self):
         self.patch_target('config')
         self.config.__getitem__.return_value = 42
         self.patch_target('configure_ovn_listener')
         self.patch_target('configure_ovsdb_election_timer')
+        self.patch_target('configure_common_zone')
         self.target.configure_ovn(1, 2, 3)
         self.config.__getitem__.assert_has_calls([
             mock.call('ovsdb-server-inactivity-probe'),
@@ -493,6 +517,7 @@ class TestOVNCentralCharm(Helper):
             mock.call('nb', 42),
             mock.call('sb', 42),
         ])
+        self.configure_common_zone.assert_called_once_with()
 
     def test_initialize_firewall(self):
         self.patch_object(ovn_central, 'ch_ufw')
